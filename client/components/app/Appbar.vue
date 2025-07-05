@@ -36,6 +36,12 @@
           </ui-tooltip>
         </nuxt-link>
 
+        <nuxt-link to="/wishlist" class="hover:text-gray-200 cursor-pointer w-8 h-8 flex items-center justify-center mx-1">
+          <ui-tooltip :text="$strings.HeaderWishList || 'Wish List'" direction="bottom" class="flex items-center">
+            <span class="material-symbols text-2xl" aria-label="Wish List" role="button">bookmark</span>
+          </ui-tooltip>
+        </nuxt-link>
+
         <nuxt-link v-if="userIsAdminOrUp" to="/config" class="hover:text-gray-200 cursor-pointer w-8 h-8 flex items-center justify-center mx-1">
           <ui-tooltip :text="$strings.HeaderSettings" direction="bottom" class="flex items-center">
             <span class="material-symbols text-2xl" aria-label="System Settings" role="button">&#xe8b8;</span>
