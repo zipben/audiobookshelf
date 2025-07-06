@@ -262,8 +262,9 @@
                   </td>
                   <td class="py-2 px-2">
                     <div class="flex items-center space-x-1">
-                      <button v-if="result.magnetUrl || result.downloadUrl" @click="addToDownloadClient(result)" :loading="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
-                        <span class="material-symbols text-sm">download</span>
+                      <button v-if="result.magnetUrl || result.downloadUrl" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
+                        <span v-if="downloadingTorrent === result.guid" class="material-symbols text-sm animate-spin">hourglass_empty</span>
+                        <span v-else class="material-symbols text-sm">download</span>
                       </button>
                       <button v-if="result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
                         <span class="material-symbols text-sm">link</span>
