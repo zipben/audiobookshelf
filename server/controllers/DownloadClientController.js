@@ -297,6 +297,12 @@ class DownloadClientController {
       for (const client of enabledClients) {
         try {
           const torrents = await DownloadClientController.getTorrentsFromClient(client)
+          Logger.debug(`[DownloadClientController] Got ${torrents.length} torrents from "${client.name}"`)
+          
+          // Log the structure of torrents if any exist
+          if (torrents.length > 0) {
+            Logger.debug(`[DownloadClientController] Sample torrent data from "${client.name}":`, torrents[0])
+          }
           
           // Match torrents to wishlist items by hash
           for (const wishlistItem of wishlistItems) {
@@ -313,13 +319,15 @@ class DownloadClientController {
                 })
 
                 if (matchingTorrent) {
+                  Logger.debug(`[DownloadClientController] Found matching torrent for wishlist item "${wishlistItem.title}":`, matchingTorrent)
+                  
                   // Initialize array if it doesn't exist
                   if (!progressByWishlistItem[wishlistItem.id]) {
                     progressByWishlistItem[wishlistItem.id] = []
                   }
                   
-                  // Add this download to the array
-                  progressByWishlistItem[wishlistItem.id].push({
+                  // Add this download to the array with real size data from the torrent client
+                  const progressData = {
                     name: matchingTorrent.name,
                     progress: matchingTorrent.progress,
                     state: matchingTorrent.state,
@@ -330,9 +338,14 @@ class DownloadClientController {
                     clientName: client.name,
                     clientId: client.id,
                     downloadUrl: pendingDownload.url,
-                    totalSize: 5000000000, // 5GB dummy value
-                    downloaded: 1200000000 // 1.2GB dummy value
-                  })
+                    // Real size data from the torrent client
+                    totalSize: matchingTorrent.total_size || 0,
+                    downloaded: matchingTorrent.downloaded || 0,
+                    amountLeft: matchingTorrent.amount_left || 0
+                  }
+                  
+                  Logger.debug(`[DownloadClientController] Progress data created for wishlist item "${wishlistItem.title}":`, progressData)
+                  progressByWishlistItem[wishlistItem.id].push(progressData)
                 }
               }
             }
@@ -342,6 +355,7 @@ class DownloadClientController {
         }
       }
 
+      Logger.debug(`[DownloadClientController] Final progress response:`, { progressByWishlistItem })
       res.json({ progressByWishlistItem })
     } catch (error) {
       Logger.error(`[DownloadClientController] Failed to get download progress:`, error)

@@ -115,7 +115,6 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="text-sm text-gray-500">-</div>
                   </div>
                 </td>
                 <td class="px-2 py-3 w-20">
