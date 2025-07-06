@@ -465,11 +465,11 @@ class JackettController {
 
     try {
       // Replace host.docker.internal with localhost for server-side requests
-      //const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
+      const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
       
       Logger.info(`[JackettController] Downloading torrent from: ${processedUrl}`)
       
-      const response = await axios.get(downloadUrl, {
+      const response = await axios.get(processedUrl, {
         timeout: 30000,
         responseType: 'arraybuffer',
         headers: {
