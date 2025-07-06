@@ -647,9 +647,12 @@ export default {
         return
       }
 
+      // Replace host.docker.internal with localhost for client-side requests
+      const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
+
       // Open download URL in new tab
       const link = document.createElement('a')
-      link.href = downloadUrl
+      link.href = processedUrl
       link.target = '_blank'
       link.rel = 'noopener noreferrer'
       document.body.appendChild(link)
