@@ -111,6 +111,11 @@ export default {
           path: '/config/authentication'
         },
         {
+          id: 'config-jackett-integrations',
+          title: 'Jackett Integrations',
+          path: '/config/jackett-integrations'
+        },
+        {
           id: 'styling',
           title: this.$strings.HeaderStyling,
           path: '/config/styling'

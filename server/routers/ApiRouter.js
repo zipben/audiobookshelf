@@ -34,6 +34,7 @@ const CustomMetadataProviderController = require('../controllers/CustomMetadataP
 const MiscController = require('../controllers/MiscController')
 const ShareController = require('../controllers/ShareController')
 const StatsController = require('../controllers/StatsController')
+const JackettController = require('../controllers/JackettController')
 
 class ApiRouter {
   constructor(Server) {
@@ -331,6 +332,17 @@ class ApiRouter {
     //
     this.router.get('/stats/year/:year', StatsController.middleware.bind(this), StatsController.getAdminStatsForYear.bind(this))
     this.router.get('/stats/server', StatsController.middleware.bind(this), StatsController.getServerStats.bind(this))
+
+    //
+    // Jackett Routes (Admin only)
+    //
+    this.router.get('/jackett/integrations', JackettController.getIntegrations)
+    this.router.post('/jackett/integrations', JackettController.createIntegration)
+    this.router.put('/jackett/integrations/:id', JackettController.updateIntegration)
+    this.router.delete('/jackett/integrations/:id', JackettController.deleteIntegration)
+    this.router.post('/jackett/integrations/:id/test', JackettController.testIntegration)
+    this.router.get('/jackett/categories', JackettController.getCategories)
+    this.router.post('/jackett/search', JackettController.search)
 
     //
     // Misc Routes
