@@ -1,5 +1,5 @@
 /**
- * MIGRATION v2.25.2
+ * MIGRATION v2.25.1
  * 
  * Convert wishlist items with multiple formats to separate items for each format
  */
@@ -11,7 +11,7 @@ const Logger = require('../Logger')
  * @param {import('../Database')} Database - Database instance
  */
 async function up(queryInterface, Database) {
-  Logger.info('[Migration v2.25.2] Converting wishlist formats to separate items...')
+  Logger.info('[Migration v2.25.1] Converting wishlist formats to separate items...')
 
   // First, add the new format column
   await queryInterface.addColumn('wishlistItems', 'format', {
@@ -25,7 +25,7 @@ async function up(queryInterface, Database) {
     { type: queryInterface.sequelize.QueryTypes.SELECT }
   )
 
-  Logger.info(`[Migration v2.25.2] Found ${items.length} items to process`)
+  Logger.info(`[Migration v2.25.1] Found ${items.length} items to process`)
 
   // Process each item
   for (const item of items) {
@@ -33,7 +33,7 @@ async function up(queryInterface, Database) {
     try {
       formats = JSON.parse(item.formats) || []
     } catch (error) {
-      Logger.warn(`[Migration v2.25.2] Could not parse formats for item ${item.id}:`, item.formats)
+      Logger.warn(`[Migration v2.25.1] Could not parse formats for item ${item.id}:`, item.formats)
       continue
     }
 
@@ -47,10 +47,10 @@ async function up(queryInterface, Database) {
         'UPDATE wishlistItems SET format = ? WHERE id = ?',
         { replacements: [formats[0], item.id] }
       )
-      Logger.debug(`[Migration v2.25.2] Updated single format item ${item.id} to format: ${formats[0]}`)
+      Logger.debug(`[Migration v2.25.1] Updated single format item ${item.id} to format: ${formats[0]}`)
     } else {
       // Multiple formats, create separate items for each format
-      Logger.debug(`[Migration v2.25.2] Creating separate items for ${item.id} with formats:`, formats)
+      Logger.debug(`[Migration v2.25.1] Creating separate items for ${item.id} with formats:`, formats)
       
       for (let i = 0; i < formats.length; i++) {
         const format = formats[i]
@@ -87,7 +87,7 @@ async function up(queryInterface, Database) {
               ]
             }
           )
-          Logger.debug(`[Migration v2.25.2] Created new item ${newId} for format: ${format}`)
+          Logger.debug(`[Migration v2.25.1] Created new item ${newId} for format: ${format}`)
         }
       }
     }
@@ -96,14 +96,14 @@ async function up(queryInterface, Database) {
   // Remove the old formats column
   await queryInterface.removeColumn('wishlistItems', 'formats')
 
-  Logger.info('[Migration v2.25.2] Migration completed successfully')
+  Logger.info('[Migration v2.25.1] Migration completed successfully')
 }
 
 /**
  * @param {import('sequelize').QueryInterface} queryInterface - Sequelize Query Interface  
  */
 async function down(queryInterface) {
-  Logger.info('[Migration v2.25.2] Reverting wishlist format separation...')
+  Logger.info('[Migration v2.25.1] Reverting wishlist format separation...')
 
   // Add back the formats column
   await queryInterface.addColumn('wishlistItems', 'formats', {
@@ -121,7 +121,7 @@ async function down(queryInterface) {
   // Remove the format column
   await queryInterface.removeColumn('wishlistItems', 'format')
 
-  Logger.info('[Migration v2.25.2] Rollback completed')
+  Logger.info('[Migration v2.25.1] Rollback completed')
 }
 
 module.exports = { up, down } 

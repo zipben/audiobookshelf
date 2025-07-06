@@ -21,14 +21,15 @@
                 <p v-if="book.publishedDate" class="text-xs text-gray-400">{{ book.publishedDate }}</p>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0">
-                <button @click="addBookFromSearch(book, 'audiobook')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors flex items-center space-x-1">
-                  <span class="material-symbols text-sm">headphones</span>
-                  <span>Audiobook</span>
-                </button>
-                <button @click="addBookFromSearch(book, 'ebook')" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors flex items-center space-x-1">
-                  <span class="material-symbols text-sm">book</span>
-                  <span>Ebook</span>
-                </button>
+                <div v-if="libraries.length > 0" class="relative">
+                  <select @change="handleLibrarySelection(book, $event)" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors">
+                    <option value="">Select Library</option>
+                    <option v-for="library in libraries" :key="library.id" :value="library.id">{{ library.name }}</option>
+                  </select>
+                </div>
+                <div v-else class="px-3 py-1 bg-gray-600 text-gray-300 text-xs rounded-md">
+                  <span>No libraries available</span>
+                </div>
               </div>
             </div>
           </div>
@@ -49,7 +50,7 @@
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-40">Title</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-28">Author</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-12">Year</th>
-                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-16">Format</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-16">Library</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-24">Notes</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-32">Progress</th>
                 <th class="text-center px-2 py-3 text-sm font-semibold text-gray-200 w-20">Actions</th>
@@ -74,13 +75,9 @@
                 </td>
                 <td class="px-2 py-3 w-16">
                   <div class="flex items-center space-x-1">
-                    <span v-if="item.format === 'audiobook'" class="inline-flex items-center px-1 py-0.5 bg-blue-600/20 text-blue-300 text-xs rounded">
-                      <span class="material-symbols text-xs mr-0.5">headphones</span>
-                      Audio
-                    </span>
-                    <span v-else-if="item.format === 'ebook'" class="inline-flex items-center px-1 py-0.5 bg-green-600/20 text-green-300 text-xs rounded">
-                      <span class="material-symbols text-xs mr-0.5">book</span>
-                      eBook
+                    <span v-if="item.library" class="inline-flex items-center px-1 py-0.5 bg-purple-600/20 text-purple-300 text-xs rounded">
+                      <span class="material-symbols text-xs mr-0.5">{{ item.library.icon || 'library_books' }}</span>
+                      {{ item.library.name }}
                     </span>
                     <span v-else class="text-sm text-gray-400"> - </span>
                   </div>
@@ -351,7 +348,8 @@ export default {
       downloadingTorrent: null,
       downloadProgress: {},
       progressUpdateInterval: null,
-      cancellingDownloads: {}
+      cancellingDownloads: {},
+      libraries: []
     }
   },
   computed: {
@@ -494,7 +492,15 @@ export default {
         this.searchLoading = false
       }
     },
-    async addBookFromSearch(book, format) {
+    handleLibrarySelection(book, event) {
+      const libraryId = event.target.value
+      if (libraryId) {
+        this.addBookFromSearch(book, libraryId)
+        // Reset the select dropdown
+        event.target.value = ''
+      }
+    },
+    async addBookFromSearch(book, libraryId) {
       try {
         const response = await this.$axios.$post('/api/wishlist', {
           title: book.title,
@@ -506,7 +512,7 @@ export default {
           isbn: book.isbn,
           pageCount: book.pageCount,
           categories: book.categories,
-          formats: [format]
+          libraries: [libraryId]
         })
 
         if (response.wishlistItems && response.wishlistItems.length > 0) {
@@ -515,10 +521,13 @@ export default {
             this.wishlistItems.unshift(item)
           })
 
+          const library = this.libraries.find((lib) => lib.id === libraryId)
+          const libraryName = library ? library.name : 'Unknown Library'
+
           if (response.wishlistItems.length === 1) {
-            this.$toast.success(`"${book.title}" added to your wishlist as ${format}!`)
+            this.$toast.success(`"${book.title}" added to your wishlist in ${libraryName}!`)
           } else {
-            this.$toast.success(`"${book.title}" added to your wishlist with ${response.wishlistItems.length} formats!`)
+            this.$toast.success(`"${book.title}" added to your wishlist with ${response.wishlistItems.length} libraries!`)
           }
         } else {
           this.$toast.success(response.message || 'Item already exists in wishlist')
@@ -695,6 +704,14 @@ export default {
         console.error('Failed to load download clients:', error)
       }
     },
+    async loadLibraries() {
+      try {
+        const response = await this.$axios.$get('/api/libraries')
+        this.libraries = response.libraries || []
+      } catch (error) {
+        console.error('Failed to load libraries:', error)
+      }
+    },
     async addToDownloadClient(result) {
       if (!this.userIsAdminOrUp) {
         this.$toast.error('Only administrators can use download clients')
@@ -843,6 +860,7 @@ export default {
     console.log('Component mounted - wishlist items:', this.wishlistItems.length)
     this.loadWishlistItems()
     this.loadDownloadClients()
+    this.loadLibraries()
 
     // Start progress monitoring if user is admin
     if (this.userIsAdminOrUp) {
