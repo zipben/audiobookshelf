@@ -115,9 +115,25 @@ class WishlistController {
         return res.status(400).json({ error: 'All items already exist in wishlist with specified libraries' })
       }
 
-      // Return the created items (or existing ones if nothing was created)
+      // Return the created items (or existing ones if nothing was created) with library information
       const items = createdItems.length > 0 ? createdItems : existingItems
-      const responseItems = items.map(item => item.toJSON())
+      
+      // Re-fetch the items with library information included
+      const itemsWithLibrary = await Database.wishlistItemModel.findAll({
+        where: {
+          id: items.map(item => item.id)
+        },
+        include: [
+          {
+            model: Database.libraryModel,
+            as: 'library',
+            attributes: ['id', 'name', 'mediaType', 'icon']
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      })
+
+      const responseItems = itemsWithLibrary.map(item => item.toJSON())
 
       if (createdItems.length > 0) {
         res.status(201).json({ 
@@ -195,7 +211,22 @@ class WishlistController {
       const libraryName = library ? library.name : 'No Library'
 
       Logger.info(`[WishlistController] Updated wishlist item "${wishlistItem.title}" in library "${libraryName}" for user ${req.user.id}`)
-      res.json({ wishlistItem: wishlistItem.toJSON() })
+      
+      // Re-fetch the item with library information included
+      const updatedItemWithLibrary = await Database.wishlistItemModel.findOne({
+        where: {
+          id: wishlistItem.id
+        },
+        include: [
+          {
+            model: Database.libraryModel,
+            as: 'library',
+            attributes: ['id', 'name', 'mediaType', 'icon']
+          }
+        ]
+      })
+      
+      res.json({ wishlistItem: updatedItemWithLibrary.toJSON() })
 
     } catch (error) {
       Logger.error(`[WishlistController] Error updating wishlist item for user ${req.user.id}:`, error)
