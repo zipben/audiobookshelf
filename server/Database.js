@@ -157,6 +157,11 @@ class Database {
     return this.models.comment
   }
 
+  /** @type {typeof import('./models/WishlistItem')} */
+  get wishlistItemModel() {
+    return this.models.wishlistItem
+  }
+
   /**
    * Check if db file exists
    * @returns {boolean}
@@ -339,6 +344,7 @@ class Database {
     require('./models/CustomMetadataProvider').init(this.sequelize)
     require('./models/MediaItemShare').init(this.sequelize)
     require('./models/Comment').init(this.sequelize)
+    require('./models/WishlistItem').init(this.sequelize)
 
     // Set up associations after all models are initialized
     Object.values(this.sequelize.models).forEach(model => {

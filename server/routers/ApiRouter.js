@@ -35,6 +35,7 @@ const MiscController = require('../controllers/MiscController')
 const ShareController = require('../controllers/ShareController')
 const StatsController = require('../controllers/StatsController')
 const JackettController = require('../controllers/JackettController')
+const WishlistController = require('../controllers/WishlistController')
 
 class ApiRouter {
   constructor(Server) {
@@ -343,6 +344,14 @@ class ApiRouter {
     this.router.post('/jackett/integrations/:id/test', JackettController.testIntegration)
     this.router.get('/jackett/categories', JackettController.getCategories)
     this.router.post('/jackett/search', JackettController.search)
+
+    //
+    // Wishlist Routes
+    //
+    this.router.get('/wishlist', WishlistController.getWishlistItems.bind(this))
+    this.router.post('/wishlist', WishlistController.addWishlistItem.bind(this))
+    this.router.put('/wishlist/:id', WishlistController.updateWishlistItem.bind(this))
+    this.router.delete('/wishlist/:id', WishlistController.deleteWishlistItem.bind(this))
 
     //
     // Misc Routes
