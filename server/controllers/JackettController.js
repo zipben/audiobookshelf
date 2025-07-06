@@ -184,7 +184,10 @@ class JackettController {
       // Test the connection by trying to get indexer capabilities
       const testUrl = integration.url.replace(/\/torznab.*$/, '/torznab?t=caps&apikey=' + integration.apiKey)
       
-      const response = await axios.get(testUrl, {
+      // Replace host.docker.internal with localhost for server-side requests
+      const processedUrl = testUrl.replace(/host\.docker\.internal/g, 'localhost')
+      
+      const response = await axios.get(processedUrl, {
         timeout: 10000,
         headers: {
           'User-Agent': 'Audiobookshelf'
@@ -319,9 +322,12 @@ class JackettController {
     // Use the original Torznab URL with search parameters
     const searchUrl = `${integration.url}?${searchParams.toString()}`
     
-    Logger.info(`[JackettController] Searching integration "${integration.name}" at: ${searchUrl.replace(/apikey=[^&]+/, 'apikey=***')}`)
+    // Replace host.docker.internal with localhost for server-side requests
+    const processedUrl = searchUrl.replace(/host\.docker\.internal/g, 'localhost')
+    
+    Logger.info(`[JackettController] Searching integration "${integration.name}" at: ${processedUrl.replace(/apikey=[^&]+/, 'apikey=***')}`)
 
-    const response = await axios.get(searchUrl, {
+    const response = await axios.get(processedUrl, {
       timeout: 30000,
       headers: {
         'User-Agent': 'Audiobookshelf'
@@ -441,6 +447,67 @@ class JackettController {
     ]
 
     res.json({ categories: bookCategories })
+  }
+
+  /**
+   * POST: /api/jackett/download
+   * Download a torrent file and return it or extract magnet link
+   *
+   * @param {JackettControllerRequest} req
+   * @param {Response} res
+   */
+  static async downloadTorrent(req, res) {
+    if (!req.user.isAdminOrUp) {
+      Logger.error(`[JackettController] Non-admin user "${req.user.username}" attempted to download torrent`)
+      return res.sendStatus(403)
+    }
+
+    const { downloadUrl } = req.body
+
+    if (!downloadUrl) {
+      return res.status(400).json({ error: 'Download URL is required' })
+    }
+
+    try {
+      // Replace host.docker.internal with localhost for server-side requests
+      const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
+      
+      Logger.info(`[JackettController] Downloading torrent from: ${processedUrl}`)
+      
+      const response = await axios.get(processedUrl, {
+        timeout: 30000,
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Audiobookshelf',
+          'Accept': 'application/x-bittorrent'
+        }
+      })
+
+      if (response.status === 200) {
+        // Set headers for torrent file download
+        res.setHeader('Content-Type', 'application/x-bittorrent')
+        res.setHeader('Content-Disposition', 'attachment; filename="torrent.torrent"')
+        res.setHeader('Content-Length', response.data.length)
+        
+        // Send the torrent file
+        res.send(response.data)
+        
+        Logger.info(`[JackettController] Successfully downloaded torrent file`)
+      } else {
+        Logger.error(`[JackettController] Failed to download torrent: HTTP ${response.status}`)
+        res.status(500).json({ error: 'Failed to download torrent file' })
+      }
+    } catch (error) {
+      Logger.error(`[JackettController] Error downloading torrent:`, error)
+      
+      if (error.code === 'ECONNREFUSED') {
+        res.status(503).json({ error: 'Cannot connect to Jackett service' })
+      } else if (error.code === 'ETIMEDOUT') {
+        res.status(504).json({ error: 'Request timeout' })
+      } else {
+        res.status(500).json({ error: error.message || 'Failed to download torrent' })
+      }
+    }
   }
 }
 
