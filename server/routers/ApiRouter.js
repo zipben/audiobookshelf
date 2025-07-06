@@ -35,6 +35,7 @@ const MiscController = require('../controllers/MiscController')
 const ShareController = require('../controllers/ShareController')
 const StatsController = require('../controllers/StatsController')
 const JackettController = require('../controllers/JackettController')
+const DownloadClientController = require('../controllers/DownloadClientController')
 const WishlistController = require('../controllers/WishlistController')
 
 class ApiRouter {
@@ -346,12 +347,24 @@ class ApiRouter {
     this.router.post('/jackett/search', JackettController.search)
 
     //
+    // Download Client Routes (Admin only)
+    //
+    this.router.get('/download-clients', DownloadClientController.getClients)
+    this.router.post('/download-clients', DownloadClientController.createClient)
+    this.router.put('/download-clients/:id', DownloadClientController.updateClient)
+    this.router.delete('/download-clients/:id', DownloadClientController.deleteClient)
+    this.router.post('/download-clients/:id/test', DownloadClientController.testClient)
+    this.router.post('/download-clients/:id/add-torrent', DownloadClientController.addTorrent)
+    this.router.delete('/download-clients/:id/torrents/:hash', DownloadClientController.cancelDownload)
+    this.router.get('/download-clients/progress', DownloadClientController.getDownloadProgress)
+
+    //
     // Wishlist Routes
     //
-    this.router.get('/wishlist', WishlistController.getWishlistItems.bind(this))
-    this.router.post('/wishlist', WishlistController.addWishlistItem.bind(this))
-    this.router.put('/wishlist/:id', WishlistController.updateWishlistItem.bind(this))
-    this.router.delete('/wishlist/:id', WishlistController.deleteWishlistItem.bind(this))
+    this.router.get('/wishlist', WishlistController.getWishlistItems)
+    this.router.post('/wishlist', WishlistController.addWishlistItem)
+    this.router.put('/wishlist/:id', WishlistController.updateWishlistItem)
+    this.router.delete('/wishlist/:id', WishlistController.deleteWishlistItem)
 
     //
     // Misc Routes

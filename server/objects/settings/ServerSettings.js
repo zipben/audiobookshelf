@@ -75,6 +75,9 @@ class ServerSettings {
     // Jackett Integration
     this.jackettIntegrations = []
 
+    // Download Client Integration
+    this.downloadClients = []
+
     // Auth settings
     this.authLoginCustomMessage = null
     this.authActiveAuthMethods = ['local']
@@ -153,6 +156,7 @@ class ServerSettings {
     this.buildNumber = settings.buildNumber || 0 // Added v2.4.5
 
     this.jackettIntegrations = settings.jackettIntegrations || []
+    this.downloadClients = settings.downloadClients || []
 
     this.authLoginCustomMessage = settings.authLoginCustomMessage || null // Added v2.8.0
     this.authActiveAuthMethods = settings.authActiveAuthMethods || ['local']
@@ -267,6 +271,7 @@ class ServerSettings {
       version: this.version,
       buildNumber: this.buildNumber,
       jackettIntegrations: this.jackettIntegrations,
+      downloadClients: this.downloadClients,
       authLoginCustomMessage: this.authLoginCustomMessage,
       authActiveAuthMethods: this.authActiveAuthMethods,
       authOpenIDIssuerURL: this.authOpenIDIssuerURL,

@@ -58,6 +58,7 @@ export default {
         else if (pageName === 'email') return this.$strings.HeaderEmail
         else if (pageName === 'authentication') return this.$strings.HeaderAuthentication
         else if (pageName === 'jackett-integrations') return 'Jackett Integrations'
+        else if (pageName === 'download-clients') return 'Download Clients'
       }
       return this.$strings.HeaderSettings
     }

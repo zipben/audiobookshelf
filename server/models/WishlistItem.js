@@ -45,7 +45,11 @@ class WishlistItem extends Model {
           type: DataTypes.JSON,
           allowNull: true
         },
-        formats: {
+        format: {
+          type: DataTypes.STRING,
+          allowNull: true
+        },
+        pendingDownloads: {
           type: DataTypes.JSON,
           allowNull: true,
           defaultValue: []
@@ -99,7 +103,8 @@ class WishlistItem extends Model {
       isbn: this.isbn,
       pageCount: this.pageCount,
       categories: this.categories,
-      formats: this.formats,
+      format: this.format,
+      pendingDownloads: this.pendingDownloads || [],
       userId: this.userId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

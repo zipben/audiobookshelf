@@ -48,55 +48,69 @@ class WishlistController {
         return res.status(400).json({ error: 'Title is required' })
       }
 
-      // Check if item already exists for this user
-      const existingItem = await Database.wishlistItemModel.findOne({
-        where: {
-          userId: req.user.id,
-          title: title,
-          author: author || null
-        }
-      })
-
-      if (existingItem) {
-        // Check if we're adding a new format to existing item
-        if (formats && formats.length > 0) {
-          const existingFormats = existingItem.formats || []
-          const newFormats = [...new Set([...existingFormats, ...formats])]
-          
-          if (newFormats.length > existingFormats.length) {
-            existingItem.formats = newFormats
-            await existingItem.save()
-            
-            Logger.info(`[WishlistController] Updated formats for existing item "${title}" for user ${req.user.id}`)
-            return res.json({ 
-              wishlistItem: existingItem.toJSON(),
-              message: 'Item updated with new format'
-            })
-          } else {
-            return res.status(400).json({ error: 'Item already exists in wishlist with this format' })
-          }
-        } else {
-          return res.status(400).json({ error: 'Item already exists in wishlist' })
-        }
+      const formatsToAdd = formats || []
+      if (formatsToAdd.length === 0) {
+        return res.status(400).json({ error: 'At least one format is required' })
       }
 
-      // Create new wishlist item
-      const wishlistItem = await Database.wishlistItemModel.create({
-        title,
-        author,
-        notes,
-        thumbnail,
-        publishedDate,
-        description,
-        isbn,
-        pageCount,
-        categories,
-        formats: formats || [],
-        userId: req.user.id
-      })
+      const createdItems = []
+      const existingItems = []
 
-      Logger.info(`[WishlistController] Added item "${title}" to wishlist for user ${req.user.id}`)
-      res.status(201).json({ wishlistItem: wishlistItem.toJSON() })
+      // Create separate items for each format
+      for (const format of formatsToAdd) {
+        // Check if item already exists for this user with this specific format
+        const existingItem = await Database.wishlistItemModel.findOne({
+          where: {
+            userId: req.user.id,
+            title: title,
+            author: author || null,
+            format: format
+          }
+        })
+
+        if (existingItem) {
+          existingItems.push(existingItem)
+          continue
+        }
+
+        // Create new wishlist item for this format
+        const wishlistItem = await Database.wishlistItemModel.create({
+          title,
+          author,
+          notes,
+          thumbnail,
+          publishedDate,
+          description,
+          isbn,
+          pageCount,
+          categories,
+          format,
+          userId: req.user.id
+        })
+
+        createdItems.push(wishlistItem)
+        Logger.info(`[WishlistController] Added item "${title}" (${format}) to wishlist for user ${req.user.id}`)
+      }
+
+      if (createdItems.length === 0 && existingItems.length > 0) {
+        return res.status(400).json({ error: 'All items already exist in wishlist with specified formats' })
+      }
+
+      // Return the created items (or existing ones if nothing was created)
+      const items = createdItems.length > 0 ? createdItems : existingItems
+      const responseItems = items.map(item => item.toJSON())
+
+      if (createdItems.length > 0) {
+        res.status(201).json({ 
+          wishlistItems: responseItems,
+          message: `Added ${createdItems.length} item(s) to wishlist`
+        })
+      } else {
+        res.json({ 
+          wishlistItems: responseItems,
+          message: 'Items already exist in wishlist'
+        })
+      }
 
     } catch (error) {
       Logger.error(`[WishlistController] Error adding wishlist item for user ${req.user.id}:`, error)
@@ -114,7 +128,7 @@ class WishlistController {
   static async updateWishlistItem(req, res) {
     try {
       const { id } = req.params
-      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, formats } = req.body
+      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, format } = req.body
 
       const wishlistItem = await Database.wishlistItemModel.findOne({
         where: {
@@ -138,10 +152,10 @@ class WishlistController {
         isbn: isbn !== undefined ? isbn : wishlistItem.isbn,
         pageCount: pageCount !== undefined ? pageCount : wishlistItem.pageCount,
         categories: categories !== undefined ? categories : wishlistItem.categories,
-        formats: formats !== undefined ? formats : wishlistItem.formats
+        format: format !== undefined ? format : wishlistItem.format
       })
 
-      Logger.info(`[WishlistController] Updated wishlist item "${wishlistItem.title}" for user ${req.user.id}`)
+      Logger.info(`[WishlistController] Updated wishlist item "${wishlistItem.title}" (${wishlistItem.format}) for user ${req.user.id}`)
       res.json({ wishlistItem: wishlistItem.toJSON() })
 
     } catch (error) {
