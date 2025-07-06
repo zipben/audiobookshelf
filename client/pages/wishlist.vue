@@ -41,6 +41,7 @@
         </div>
 
         <div v-if="wishlistItems.length" class="bg-primary/20 rounded-lg overflow-hidden">
+          <div class="mb-2 p-2 text-xs text-gray-400">Debug: {{ wishlistItems.length }} items, User: {{ currentUserId }}, Admin: {{ userIsAdminOrUp }}</div>
           <table class="w-full">
             <thead class="bg-primary/40">
               <tr class="border-b border-gray-600">
@@ -94,10 +95,9 @@
                     <button @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
                       <span class="material-symbols text-lg">link</span>
                     </button>
-                    <button v-if="canUserDeleteItem(item)" @click="deleteItemClick(item)" class="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete from wishlist">
+                    <button @click="deleteWishlistItem(item)" class="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete from wishlist">
                       <span class="material-symbols text-lg">delete</span>
                     </button>
-                    <span v-if="!canUserDeleteItem(item)" class="text-xs text-gray-500"> - </span>
                   </div>
                 </td>
               </tr>
@@ -376,58 +376,35 @@ export default {
     }
   },
   methods: {
-    canUserDeleteItem(item) {
-      // User can delete if they are admin or if they created the item
-      return this.userIsAdminOrUp || (item.userId && item.userId === this.currentUserId)
-    },
-    deleteItemClick(item) {
-      // Check permissions before showing confirmation
-      if (!this.canUserDeleteItem(item)) {
-        this.$toast.warning('You do not have permission to delete this item.')
-        return
-      }
-
-      const payload = {
-        message: this.$strings.MessageConfirmDeleteWishListItem || `Are you sure you want to remove "${item.title}" from your wish list?`,
-        callback: (confirmed) => {
-          if (confirmed) {
-            this.deleteItem(item)
-          }
-        },
-        type: 'yesNo'
-      }
-      this.$store.commit('globals/setConfirmPrompt', payload)
-    },
-
-    deleteItem(item) {
-      const index = this.wishlistItems.findIndex((i) => i.id === item.id)
-      if (index !== -1) {
-        this.wishlistItems.splice(index, 1)
-        this.saveWishlistToStorage()
-      }
-    },
-    saveWishlistToStorage() {
-      // For now, save to localStorage. In production, this would be saved to the server
-      localStorage.setItem('audiobookshelf_wishlist', JSON.stringify(this.wishlistItems))
-    },
-    loadWishlistFromStorage() {
+    async deleteWishlistItem(item) {
       try {
-        const saved = localStorage.getItem('audiobookshelf_wishlist')
-        if (saved) {
-          this.wishlistItems = JSON.parse(saved)
-          // Migrate legacy items without userId - assign to current user or leave blank if no user
-          this.wishlistItems.forEach((item) => {
-            if (!item.userId && this.currentUserId) {
-              item.userId = this.currentUserId
-            }
-          })
-          // Save the migrated data
-          if (this.wishlistItems.some((item) => !item.hasOwnProperty('userId'))) {
-            this.saveWishlistToStorage()
-          }
+        console.log('Deleting wishlist item:', item)
+        await this.$axios.$delete(`/api/wishlist/${item.id}`)
+
+        const index = this.wishlistItems.findIndex((i) => i.id === item.id)
+        if (index !== -1) {
+          this.wishlistItems.splice(index, 1)
         }
+
+        this.$toast.success('Item removed from wishlist')
       } catch (error) {
-        console.error('Error loading wishlist from storage:', error)
+        console.error('Error deleting wishlist item:', error)
+        this.$toast.error(error.response?.data?.error || 'Failed to delete item')
+      }
+    },
+    async loadWishlistItems() {
+      try {
+        this.loading = true
+        console.log('Loading wishlist items from API...')
+        const response = await this.$axios.$get('/api/wishlist')
+        this.wishlistItems = response.wishlistItems || []
+        console.log('Loaded wishlist items:', this.wishlistItems.length, 'items')
+        console.log('Items:', this.wishlistItems)
+      } catch (error) {
+        console.error('Error loading wishlist items:', error)
+        this.$toast.error('Failed to load wishlist items')
+      } finally {
+        this.loading = false
       }
     },
     onSearchInput() {
@@ -478,29 +455,9 @@ export default {
         this.searchLoading = false
       }
     },
-    addBookFromSearch(book, format) {
-      // Check if book already exists in wishlist
-      const existingBook = this.wishlistItems.find((item) => item.title === book.title && item.author === book.authors)
-
-      if (existingBook) {
-        // Check if this format is already requested
-        if (existingBook.formats && existingBook.formats.includes(format)) {
-          this.$toast.warning(`This book is already in your wishlist as ${format}!`)
-          return
-        }
-
-        // Add the new format to existing book
-        if (!existingBook.formats) {
-          existingBook.formats = []
-        }
-        existingBook.formats.push(format)
-        this.saveWishlistToStorage()
-
-        this.$toast.success(`"${book.title}" updated with ${format} format!`)
-      } else {
-        // Add new book to wishlist
-        const newItem = {
-          id: Date.now().toString(),
+    async addBookFromSearch(book, format) {
+      try {
+        const response = await this.$axios.$post('/api/wishlist', {
           title: book.title,
           author: book.authors,
           notes: '',
@@ -510,20 +467,29 @@ export default {
           isbn: book.isbn,
           pageCount: book.pageCount,
           categories: book.categories,
-          formats: [format],
-          userId: this.currentUserId,
-          addedAt: new Date().toISOString()
+          formats: [format]
+        })
+
+        if (response.message) {
+          // Item was updated with new format
+          const existingIndex = this.wishlistItems.findIndex((item) => item.id === response.wishlistItem.id)
+          if (existingIndex !== -1) {
+            this.wishlistItems[existingIndex] = response.wishlistItem
+          }
+          this.$toast.success(`"${book.title}" updated with ${format} format!`)
+        } else {
+          // New item was added
+          this.wishlistItems.unshift(response.wishlistItem)
+          this.$toast.success(`"${book.title}" added to your wishlist as ${format}!`)
         }
 
-        this.wishlistItems.unshift(newItem)
-        this.saveWishlistToStorage()
-
-        this.$toast.success(`"${book.title}" added to your wishlist as ${format}!`)
+        // Clear search
+        this.searchQuery = ''
+        this.searchResults = []
+      } catch (error) {
+        console.error('Error adding book to wishlist:', error)
+        this.$toast.error(error.response?.data?.error || 'Failed to add book to wishlist')
       }
-
-      // Clear search
-      this.searchQuery = ''
-      this.searchResults = []
     },
     handleImageError(event) {
       // Set a default image if book cover fails to load
@@ -677,7 +643,8 @@ export default {
     }
   },
   mounted() {
-    this.loadWishlistFromStorage()
+    console.log('Component mounted - wishlist items:', this.wishlistItems.length)
+    this.loadWishlistItems()
     // Add click outside handler to close search results
     document.addEventListener('click', this.handleClickOutside)
   },
