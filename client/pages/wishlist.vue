@@ -87,9 +87,10 @@
                   <p class="text-sm text-gray-400 truncate max-w-xs">{{ item.notes || '-' }}</p>
                 </td>
                 <td class="px-4 py-3">
-                  <div class="flex items-center justify-center">
+                  <div class="flex items-center justify-center space-x-2">
+                    <ui-icon-btn icon="search" :size="7" @click="searchAnnaArchive(item)" class="hover:text-blue-400" title="Search on Anna's Archive" />
                     <ui-icon-btn v-if="canUserDeleteItem(item)" icon="delete" :size="7" @click="deleteItemClick(item)" />
-                    <span v-else class="text-xs text-gray-500"> - </span>
+                    <span v-if="!canUserDeleteItem(item)" class="text-xs text-gray-500"> - </span>
                   </div>
                 </td>
               </tr>
@@ -285,6 +286,15 @@ export default {
     handleImageError(event) {
       // Set a default image if book cover fails to load
       event.target.src = '/default-book-cover.jpg'
+    },
+    searchAnnaArchive(item) {
+      // Construct the search query with title and author
+      const query = `${item.title} ${item.author || ''}`.trim()
+      const encodedQuery = encodeURIComponent(query)
+      const annaArchiveUrl = `https://annas-archive.org/search?q=${encodedQuery}`
+
+      // Open Anna's Archive in a new tab
+      window.open(annaArchiveUrl, '_blank', 'noopener,noreferrer')
     },
     handleClickOutside(event) {
       // Close search results when clicking outside the search area
