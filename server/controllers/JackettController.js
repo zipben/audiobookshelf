@@ -184,10 +184,7 @@ class JackettController {
       // Test the connection by trying to get indexer capabilities
       const testUrl = integration.url.replace(/\/torznab.*$/, '/torznab?t=caps&apikey=' + integration.apiKey)
       
-      // Replace host.docker.internal with localhost for server-side requests
-      const processedUrl = testUrl.replace(/host\.docker\.internal/g, 'localhost')
-      
-      const response = await axios.get(processedUrl, {
+      const response = await axios.get(testUrl, {
         timeout: 10000,
         headers: {
           'User-Agent': 'Audiobookshelf'
@@ -322,12 +319,9 @@ class JackettController {
     // Use the original Torznab URL with search parameters
     const searchUrl = `${integration.url}?${searchParams.toString()}`
     
-    // Replace host.docker.internal with localhost for server-side requests
-    const processedUrl = searchUrl.replace(/host\.docker\.internal/g, 'localhost')
-    
-    Logger.info(`[JackettController] Searching integration "${integration.name}" at: ${processedUrl.replace(/apikey=[^&]+/, 'apikey=***')}`)
+    Logger.info(`[JackettController] Searching integration "${integration.name}" at: ${searchUrl.replace(/apikey=[^&]+/, 'apikey=***')}`)
 
-    const response = await axios.get(processedUrl, {
+    const response = await axios.get(searchUrl, {
       timeout: 30000,
       headers: {
         'User-Agent': 'Audiobookshelf'
