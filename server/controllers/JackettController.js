@@ -2,6 +2,7 @@ const axios = require('axios')
 const xml2js = require('xml2js')
 const Logger = require('../Logger')
 const Database = require('../Database')
+const { download } = require('./BackupController')
 
 /**
  * @typedef RequestWithUser
@@ -464,11 +465,11 @@ class JackettController {
 
     try {
       // Replace host.docker.internal with localhost for server-side requests
-      const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
+      //const processedUrl = downloadUrl.replace(/host\.docker\.internal/g, 'localhost')
       
       Logger.info(`[JackettController] Downloading torrent from: ${processedUrl}`)
       
-      const response = await axios.get(processedUrl, {
+      const response = await axios.get(downloadUrl, {
         timeout: 30000,
         responseType: 'arraybuffer',
         headers: {
