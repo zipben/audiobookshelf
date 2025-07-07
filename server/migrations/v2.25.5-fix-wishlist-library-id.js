@@ -1,5 +1,5 @@
 /**
- * MIGRATION v2.25.4
+ * MIGRATION v2.25.5
  * 
  * Fix wishlist libraryId column type and constraints
  */
@@ -8,19 +8,19 @@
  * @param {{ context: { queryInterface: import('sequelize').QueryInterface, Database: import('../Database'), logger: import('../Logger') }}} params
  */
 async function up({ context: { queryInterface, logger } }) {
-  logger.info('[Migration v2.25.4] Fixing libraryId column type and constraints...')
+  logger.info('[Migration v2.25.5] Fixing libraryId column type and constraints...')
 
   // Create a backup of the wishlistItems table
   await queryInterface.sequelize.query(`
     CREATE TABLE wishlistItems_backup AS SELECT * FROM wishlistItems;
   `)
-  logger.info('[Migration v2.25.4] Created backup table')
+  logger.info('[Migration v2.25.5] Created backup table')
 
   // Drop the original table
   await queryInterface.sequelize.query(`
     DROP TABLE wishlistItems;
   `)
-  logger.info('[Migration v2.25.4] Dropped original table')
+  logger.info('[Migration v2.25.5] Dropped original table')
 
   // Create the table with correct column types
   await queryInterface.sequelize.query(`
@@ -42,7 +42,7 @@ async function up({ context: { queryInterface, logger } }) {
       updatedAt DATETIME NOT NULL
     );
   `)
-  logger.info('[Migration v2.25.4] Created new table with correct column types')
+  logger.info('[Migration v2.25.5] Created new table with correct column types')
 
   // Copy the data back with explicit column list
   await queryInterface.sequelize.query(`
@@ -57,13 +57,13 @@ async function up({ context: { queryInterface, logger } }) {
       createdAt, updatedAt 
     FROM wishlistItems_backup;
   `)
-  logger.info('[Migration v2.25.4] Copied data back to main table')
+  logger.info('[Migration v2.25.5] Copied data back to main table')
 
   // Drop the backup table
   await queryInterface.sequelize.query(`
     DROP TABLE wishlistItems_backup;
   `)
-  logger.info('[Migration v2.25.4] Dropped backup table')
+  logger.info('[Migration v2.25.5] Dropped backup table')
 
   // Recreate indexes
   await queryInterface.sequelize.query(`
@@ -71,9 +71,9 @@ async function up({ context: { queryInterface, logger } }) {
     CREATE INDEX idx_wishlistItems_title ON wishlistItems(title);
     CREATE INDEX idx_wishlistItems_createdAt ON wishlistItems(createdAt);
   `)
-  logger.info('[Migration v2.25.4] Recreated indexes')
+  logger.info('[Migration v2.25.5] Recreated indexes')
 
-  logger.info('[Migration v2.25.4] Migration completed successfully')
+  logger.info('[Migration v2.25.5] Migration completed successfully')
 }
 
 /**
@@ -81,7 +81,7 @@ async function up({ context: { queryInterface, logger } }) {
  */
 async function down({ context: { queryInterface, logger } }) {
   // No down migration needed since this is a fix
-  logger.info('[Migration v2.25.4] No down migration needed for this fix')
+  logger.info('[Migration v2.25.5] No down migration needed for this fix')
 }
 
 module.exports = { up, down } 
