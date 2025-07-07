@@ -4,22 +4,19 @@
  * Convert wishlist format field to libraryId field
  */
 
-const { DataTypes } = require('sequelize')
-
 /**
- * @param {import('sequelize').QueryInterface} queryInterface - Sequelize Query Interface
- * @param {import('../Database')} Database - Database instance
+ * @param {{ context: { queryInterface: import('sequelize').QueryInterface, Database: import('../Database'), logger: import('../Logger') }}} params
  */
 async function up({ context: { queryInterface, logger } }) {
   logger.info('[Migration v2.25.3] Adding libraryId column to wishlistItems...')
 
-  // Check if the libraryId column already exists
-  const [columns] = await queryInterface.sequelize.query(
-    "PRAGMA table_info(wishlistItems)",
+  // First, check if libraryId column exists using raw SQL
+  const tableInfo = await queryInterface.sequelize.query(
+    "SELECT * FROM pragma_table_info('wishlistItems')",
     { type: queryInterface.sequelize.QueryTypes.SELECT }
   )
   
-  const hasLibraryId = columns.some(col => col.name === 'libraryId')
+  const hasLibraryId = tableInfo.find(col => col.name === 'libraryId')
   
   if (!hasLibraryId) {
     // Add the new libraryId column using raw SQL
@@ -35,7 +32,7 @@ async function up({ context: { queryInterface, logger } }) {
 }
 
 /**
- * @param {import('sequelize').QueryInterface} queryInterface - Sequelize Query Interface  
+ * @param {{ context: { queryInterface: import('sequelize').QueryInterface, logger: import('../Logger') }}} params
  */
 async function down({ context: { queryInterface, logger } }) {
   logger.info('[Migration v2.25.3] Removing libraryId column...')
