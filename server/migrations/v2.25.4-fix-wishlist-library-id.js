@@ -45,10 +45,18 @@ async function up({ context: { queryInterface, logger } }) {
   `)
   logger.info('[Migration v2.25.4] Created new table with correct column types')
 
-  // Copy the data back
+  // Copy the data back with explicit column list
   await queryInterface.sequelize.query(`
-    INSERT INTO wishlistItems 
-    SELECT * FROM wishlistItems_backup;
+    INSERT INTO wishlistItems (
+      id, title, author, notes, thumbnail, publishedDate, description, isbn, 
+      pageCount, categories, format, libraryId, pendingDownloads, userId, 
+      createdAt, updatedAt
+    ) 
+    SELECT 
+      id, title, author, notes, thumbnail, publishedDate, description, isbn, 
+      pageCount, categories, format, libraryId, pendingDownloads, userId, 
+      createdAt, updatedAt 
+    FROM wishlistItems_backup;
   `)
   logger.info('[Migration v2.25.4] Copied data back to main table')
 
