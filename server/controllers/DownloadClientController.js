@@ -282,18 +282,19 @@ class DownloadClientController {
     }
 
     try {
-      // Get all wishlist items for this user
-      const allWishlistItems = await Database.wishlistItemModel.findAll({
+      // Get all wishlist items with pending downloads for this user
+      const wishlistItems = await Database.wishlistItemModel.findAll({
         where: { 
           userId: req.user.id
-        }
+        },
+        include: [{
+          model: Database.pendingDownloadModel,
+          as: 'pendingDownloads'
+        }]
       })
 
-      // Filter items that have pending downloads (client-side filtering)
-      const wishlistItems = allWishlistItems.filter(item => {
-        const pendingDownloads = item.pendingDownloads || []
-        return Array.isArray(pendingDownloads) && pendingDownloads.length > 0
-      })
+      // Filter items that have pending downloads
+      const itemsWithDownloads = wishlistItems.filter(item => item.pendingDownloads?.length > 0)
 
       const clients = Database.serverSettings.downloadClients || []
       const enabledClients = clients.filter(client => client.enabled)
@@ -312,10 +313,8 @@ class DownloadClientController {
           }
           
           // Match torrents to wishlist items by hash
-          for (const wishlistItem of wishlistItems) {
-            const pendingDownloads = wishlistItem.pendingDownloads || []
-            
-            for (const pendingDownload of pendingDownloads) {
+          for (const wishlistItem of itemsWithDownloads) {
+            for (const pendingDownload of wishlistItem.pendingDownloads) {
               if (pendingDownload.clientId === client.id) {
                 // Find matching torrent by hash
                 const matchingTorrent = torrents.find(torrent => {
@@ -776,26 +775,25 @@ class DownloadClientController {
         }
       }
 
-      const pendingDownloads = wishlistItem.pendingDownloads || []
-      const downloadEntry = {
-        clientId,
-        url: magnetOrDownloadUrl,
-        hash: hash,
-        addedAt: new Date().toISOString()
-      }
+      // Check if download already exists
+      const existingDownload = await Database.pendingDownloadModel.findOne({
+        where: {
+          wishlistItemId,
+          [Database.Sequelize.Op.or]: [
+            { url: magnetOrDownloadUrl },
+            { hash: hash }
+          ]
+        }
+      })
 
-      // Avoid duplicates
-      const exists = pendingDownloads.some(download => 
-        download.url === magnetOrDownloadUrl || (hash && download.hash === hash)
-      )
-
-      if (!exists) {
-        pendingDownloads.push(downloadEntry)
-        
-        // Use direct assignment and save() with changed() to force Sequelize to recognize the change
-        wishlistItem.pendingDownloads = pendingDownloads
-        wishlistItem.changed('pendingDownloads', true)
-        await wishlistItem.save()
+      if (!existingDownload) {
+        await Database.pendingDownloadModel.create({
+          wishlistItemId,
+          clientId,
+          url: magnetOrDownloadUrl,
+          hash: hash,
+          addedAt: new Date()
+        })
         
         Logger.info(`[DownloadClientController] Added pending download to wishlist item "${wishlistItem.title}"`)
       }
@@ -1008,23 +1006,16 @@ class DownloadClientController {
    */
   static async removePendingDownloadFromWishlist(wishlistItemId, hash) {
     try {
-      const wishlistItem = await Database.wishlistItemModel.findByPk(wishlistItemId)
-      if (!wishlistItem) {
-        Logger.error(`[DownloadClientController] Wishlist item not found: ${wishlistItemId}`)
-        return
-      }
-
-      const pendingDownloads = wishlistItem.pendingDownloads || []
-      const filteredDownloads = pendingDownloads.filter(download => 
-        download.hash !== hash && download.hash !== hash.toLowerCase()
-      )
-
-      // Use direct assignment and save() with changed() to force Sequelize to recognize the change
-      wishlistItem.pendingDownloads = filteredDownloads
-      wishlistItem.changed('pendingDownloads', true)
-      await wishlistItem.save()
+      await Database.pendingDownloadModel.destroy({
+        where: {
+          wishlistItemId,
+          hash: {
+            [Database.Sequelize.Op.or]: [hash, hash.toLowerCase()]
+          }
+        }
+      })
       
-      Logger.info(`[DownloadClientController] Removed pending download with hash "${hash}" from wishlist item "${wishlistItem.title}"`)
+      Logger.info(`[DownloadClientController] Removed pending download with hash "${hash}" from wishlist item "${wishlistItemId}"`)
     } catch (error) {
       Logger.error(`[DownloadClientController] Failed to remove pending download from wishlist:`, error)
     }

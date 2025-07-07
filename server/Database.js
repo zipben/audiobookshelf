@@ -9,6 +9,7 @@ const dbMigration = require('./utils/migrations/dbMigration')
 const Auth = require('./Auth')
 
 const MigrationManager = require('./managers/MigrationManager')
+const PendingDownload = require('./models/PendingDownload')
 
 class Database {
   constructor() {
@@ -160,6 +161,10 @@ class Database {
   /** @type {typeof import('./models/WishlistItem')} */
   get wishlistItemModel() {
     return this.models.wishlistItem
+  }
+
+  get pendingDownloadModel() {
+    return this.sequelize.models.pendingDownload
   }
 
   /**
@@ -345,6 +350,7 @@ class Database {
     require('./models/MediaItemShare').init(this.sequelize)
     require('./models/Comment').init(this.sequelize)
     require('./models/WishlistItem').init(this.sequelize)
+    require('./models/PendingDownload').init(this.sequelize)
 
     // Set up associations after all models are initialized
     Object.values(this.sequelize.models).forEach(model => {
