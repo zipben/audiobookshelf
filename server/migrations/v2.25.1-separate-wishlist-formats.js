@@ -4,6 +4,7 @@
  * Convert wishlist items with multiple formats to separate items for each format
  */
 
+const { DataTypes } = require('sequelize')
 const Logger = require('../Logger')
 
 /**
@@ -12,88 +13,75 @@ const Logger = require('../Logger')
 async function up({ context: { queryInterface, Database, logger } }) {
   logger.info('[Migration v2.25.1] Converting wishlist formats to separate items...')
 
-  // First, add the new format column
-  await queryInterface.addColumn('wishlistItems', 'format', {
-    type: 'TEXT',
-    allowNull: true
-  })
+  // First, check if format column exists
+  const [columns] = await queryInterface.sequelize.query(
+    "PRAGMA table_info(wishlistItems)",
+    { type: queryInterface.sequelize.QueryTypes.SELECT }
+  )
+  
+  const hasFormat = columns.some(col => col.name === 'format')
+  
+  if (!hasFormat) {
+    // Add the new format column using raw SQL
+    await queryInterface.sequelize.query(
+      'ALTER TABLE wishlistItems ADD COLUMN format TEXT'
+    )
+    logger.info('[Migration v2.25.1] Added format column')
+  } else {
+    logger.info('[Migration v2.25.1] format column already exists')
+  }
 
   // Get all existing wishlist items with formats
   const items = await queryInterface.sequelize.query(
-    'SELECT id, title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, formats, pendingDownloads, userId, createdAt, updatedAt FROM wishlistItems WHERE formats IS NOT NULL AND formats != "[]"',
+    'SELECT id, title, author, notes, thumbnail, publishedDate, description, formats, libraryId FROM wishlistItems WHERE formats IS NOT NULL',
     { type: queryInterface.sequelize.QueryTypes.SELECT }
   )
 
-  logger.info(`[Migration v2.25.1] Found ${items.length} items to process`)
+  logger.info(`[Migration v2.25.1] Found ${items.length} wishlist items with formats`)
 
-  // Process each item
+  // For each item with multiple formats, create new items
   for (const item of items) {
-    let formats = []
     try {
-      formats = JSON.parse(item.formats) || []
-    } catch (error) {
-      logger.warn(`[Migration v2.25.1] Could not parse formats for item ${item.id}:`, item.formats)
-      continue
-    }
-
-    if (formats.length === 0) {
-      continue
-    }
-
-    if (formats.length === 1) {
-      // Single format, just update the format field
-      await queryInterface.sequelize.query(
-        'UPDATE wishlistItems SET format = ? WHERE id = ?',
-        { replacements: [formats[0], item.id] }
-      )
-      logger.debug(`[Migration v2.25.1] Updated single format item ${item.id} to format: ${formats[0]}`)
-    } else {
-      // Multiple formats, create separate items for each format
-      logger.debug(`[Migration v2.25.1] Creating separate items for ${item.id} with formats:`, formats)
-      
-      for (let i = 0; i < formats.length; i++) {
-        const format = formats[i]
-        
-        if (i === 0) {
-          // Update the first item to have the first format
+      const formats = JSON.parse(item.formats || '[]')
+      if (formats.length > 1) {
+        // Create new items for each additional format
+        for (let i = 1; i < formats.length; i++) {
           await queryInterface.sequelize.query(
-            'UPDATE wishlistItems SET format = ? WHERE id = ?',
-            { replacements: [format, item.id] }
-          )
-        } else {
-          // Create a new item for each additional format
-          const newId = Database.uuidv4()
-          await queryInterface.sequelize.query(
-            `INSERT INTO wishlistItems (id, title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, format, pendingDownloads, userId, createdAt, updatedAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            { 
+            'INSERT INTO wishlistItems (title, author, notes, thumbnail, publishedDate, description, format, libraryId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            {
               replacements: [
-                newId,
                 item.title,
                 item.author,
                 item.notes,
                 item.thumbnail,
                 item.publishedDate,
                 item.description,
-                item.isbn,
-                item.pageCount,
-                item.categories,
-                format,
-                item.pendingDownloads,
-                item.userId,
-                item.createdAt,
-                item.updatedAt
+                formats[i],
+                item.libraryId
               ]
             }
           )
-          logger.debug(`[Migration v2.25.1] Created new item ${newId} for format: ${format}`)
         }
+        // Update original item with first format
+        await queryInterface.sequelize.query(
+          'UPDATE wishlistItems SET format = ? WHERE id = ?',
+          {
+            replacements: [formats[0], item.id]
+          }
+        )
+      } else if (formats.length === 1) {
+        // Just update the format
+        await queryInterface.sequelize.query(
+          'UPDATE wishlistItems SET format = ? WHERE id = ?',
+          {
+            replacements: [formats[0], item.id]
+          }
+        )
       }
+    } catch (error) {
+      logger.error(`[Migration v2.25.1] Error processing item ${item.id}:`, error)
     }
   }
-
-  // Remove the old formats column
-  await queryInterface.removeColumn('wishlistItems', 'formats')
 
   logger.info('[Migration v2.25.1] Migration completed successfully')
 }
@@ -102,23 +90,12 @@ async function up({ context: { queryInterface, Database, logger } }) {
  * @param {{ context: { queryInterface: import('sequelize').QueryInterface, logger: import('../Logger') }}} params
  */
 async function down({ context: { queryInterface, logger } }) {
-  logger.info('[Migration v2.25.1] Reverting wishlist format separation...')
+  logger.info('[Migration v2.25.1] Rolling back format column...')
 
-  // Add back the formats column
-  await queryInterface.addColumn('wishlistItems', 'formats', {
-    type: 'TEXT',
-    allowNull: true,
-    defaultValue: '[]'
-  })
-
-  // This is a destructive migration - we can't perfectly restore the original state
-  // since we've split items. We'll just set formats to an array with the single format
+  // Rename the format column since SQLite doesn't support DROP COLUMN
   await queryInterface.sequelize.query(
-    'UPDATE wishlistItems SET formats = \'["' || format || '"]\' WHERE format IS NOT NULL'
+    'ALTER TABLE wishlistItems RENAME COLUMN format TO format_deprecated'
   )
-
-  // Remove the format column
-  await queryInterface.removeColumn('wishlistItems', 'format')
 
   logger.info('[Migration v2.25.1] Rollback completed')
 }
