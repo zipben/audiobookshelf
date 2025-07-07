@@ -35,7 +35,6 @@ async function up({ context: { queryInterface, logger } }) {
       isbn TEXT,
       pageCount INTEGER,
       categories TEXT,
-      format TEXT,
       libraryId CHAR(36) REFERENCES libraries(id) ON DELETE SET NULL ON UPDATE CASCADE,
       pendingDownloads TEXT,
       userId CHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -49,12 +48,12 @@ async function up({ context: { queryInterface, logger } }) {
   await queryInterface.sequelize.query(`
     INSERT INTO wishlistItems (
       id, title, author, notes, thumbnail, publishedDate, description, isbn, 
-      pageCount, categories, format, libraryId, pendingDownloads, userId, 
+      pageCount, categories, libraryId, pendingDownloads, userId, 
       createdAt, updatedAt
     ) 
     SELECT 
       id, title, author, notes, thumbnail, publishedDate, description, isbn, 
-      pageCount, categories, format, libraryId, pendingDownloads, userId, 
+      pageCount, categories, libraryId, pendingDownloads, userId, 
       createdAt, updatedAt 
     FROM wishlistItems_backup;
   `)
