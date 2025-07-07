@@ -42,13 +42,15 @@
     </app-settings-content>
 
     <!-- Add/Edit Client Modal -->
-    <modals-modal v-model="showAddClientModal" name="add-download-client" :width="600" :height="'unset'">
+    <modals-modal v-model="showAddClientModal" name="add-download-client" :width="900" :height="700">
       <template #outer>
         <div class="absolute top-0 left-0 p-5 w-2/3 overflow-hidden">
           <p class="text-3xl text-white truncate">{{ isEditMode ? 'Edit' : 'Add' }} Download Client</p>
         </div>
       </template>
-      <div class="px-4 w-full text-sm py-6 rounded-lg bg-bg shadow-lg border border-black-300 relative overflow-hidden">
+
+      <!-- Main Form Content -->
+      <div v-if="!showDirectoryPicker" class="px-4 w-full text-sm py-6 rounded-lg bg-bg shadow-lg border border-black-300 relative overflow-hidden">
         <form @submit.prevent="submitClient">
           <div class="mb-4">
             <ui-text-input v-model="clientForm.name" label="Client Name" placeholder="e.g., Main qBittorrent" :disabled="submittingClient" required />
@@ -68,9 +70,33 @@
             <ui-text-input v-model="clientForm.password" label="Password" type="password" :disabled="submittingClient" />
           </div>
 
-          <div class="mb-4">
-            <ui-text-input v-model="clientForm.downloadPath" label="Download Path" placeholder="/downloads" :disabled="submittingClient" />
-            <p class="text-xs text-gray-400 mt-1">Default path where torrents will be downloaded (optional)</p>
+          <!-- Host Download Path -->
+          <div class="flex items-center py-2">
+            <div class="w-52">
+              <span class="text-sm text-gray-400">Host Download Path</span>
+              <p class="text-xs text-gray-500 mt-1">Path on the host system (for torrent client)</p>
+            </div>
+            <div class="flex-grow">
+              <div class="flex">
+                <ui-text-input v-model="clientForm.hostDownloadPath" placeholder="e.g., /Users/username/Downloads" class="w-full" />
+                <ui-btn v-if="clientForm.hostDownloadPath" color="primary" small class="ml-2 h-9 w-18" type="button" @click="clearHostPath">Clear</ui-btn>
+              </div>
+            </div>
+          </div>
+
+          <!-- Download Path (Container) -->
+          <div class="flex items-center py-2">
+            <div class="w-52">
+              <span class="text-sm text-gray-400">Container Download Path</span>
+              <p class="text-xs text-gray-500 mt-1">Path inside the container (for folder browser)</p>
+            </div>
+            <div class="flex-grow">
+              <div class="flex">
+                <ui-text-input ref="downloadPathInput" v-model="clientForm.downloadPath" placeholder="e.g., /workspaces/audiobookshelf/downloads" class="w-full" />
+                <ui-btn color="primary" small class="ml-2 h-9 w-18" type="button" @click="browseContainerPath">Browse</ui-btn>
+                <ui-btn v-if="clientForm.downloadPath" color="primary" small class="ml-2 h-9 w-18" type="button" @click="clearContainerPath">Clear</ui-btn>
+              </div>
+            </div>
           </div>
 
           <div class="mb-4">
@@ -87,11 +113,14 @@
           </div>
 
           <div class="flex justify-end space-x-2">
-            <ui-btn @click="closeModal" :disabled="submittingClient">Cancel</ui-btn>
+            <ui-btn type="button" @click="closeModal" :disabled="submittingClient">Cancel</ui-btn>
             <ui-btn type="submit" :loading="submittingClient" color="success"> {{ isEditMode ? 'Update' : 'Add' }} Client </ui-btn>
           </div>
         </form>
       </div>
+
+      <!-- Folder Chooser -->
+      <modals-libraries-lazy-folder-chooser v-else @back="showDirectoryPicker = false" @select="selectDownloadPath" />
     </modals-modal>
   </div>
 </template>
@@ -107,6 +136,7 @@ export default {
     return {
       clients: [],
       showAddClientModal: false,
+      showDirectoryPicker: false,
       isEditMode: false,
       editingClient: null,
       submittingClient: false,
@@ -119,6 +149,7 @@ export default {
         username: '',
         password: '',
         downloadPath: '',
+        hostDownloadPath: '',
         category: '',
         enabled: true
       },
@@ -156,10 +187,27 @@ export default {
         username: client.username || '',
         password: '', // Don't populate password for security
         downloadPath: client.downloadPath || '',
+        hostDownloadPath: client.hostDownloadPath || '',
         category: client.category || '',
         enabled: client.enabled
       }
       this.showAddClientModal = true
+    },
+    browseContainerPath() {
+      this.showDirectoryPicker = true
+    },
+    selectDownloadPath(fullPath) {
+      this.clientForm.downloadPath = fullPath
+      this.showDirectoryPicker = false
+    },
+    clearDownloadPath() {
+      this.clientForm.downloadPath = ''
+    },
+    clearContainerPath() {
+      this.clientForm.downloadPath = ''
+    },
+    clearHostPath() {
+      this.clientForm.hostDownloadPath = ''
     },
     async submitClient() {
       if (!this.clientForm.name || !this.clientForm.type || !this.clientForm.host || !this.clientForm.port) {
@@ -178,6 +226,7 @@ export default {
           username: this.clientForm.username,
           password: this.clientForm.password,
           downloadPath: this.clientForm.downloadPath,
+          hostDownloadPath: this.clientForm.hostDownloadPath,
           category: this.clientForm.category,
           enabled: this.clientForm.enabled
         }
@@ -235,6 +284,7 @@ export default {
     },
     closeModal() {
       this.showAddClientModal = false
+      this.showDirectoryPicker = false
       this.isEditMode = false
       this.editingClient = null
       this.clientForm = {
@@ -245,6 +295,7 @@ export default {
         username: '',
         password: '',
         downloadPath: '',
+        hostDownloadPath: '',
         category: '',
         enabled: true
       }

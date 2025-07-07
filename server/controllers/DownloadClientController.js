@@ -12,6 +12,8 @@ const { Op } = require('sequelize')
  */
 
 class DownloadClientController {
+
+
   /**
    * GET: /api/download-clients
    * Get all download clients
@@ -42,7 +44,7 @@ class DownloadClientController {
       return res.sendStatus(403)
     }
 
-    const { name, type, host, port, username, password, downloadPath, category, enabled = true } = req.body
+    const { name, type, host, port, username, password, downloadPath, hostDownloadPath, category, enabled = true } = req.body
 
     if (!name || !type || !host || !port) {
       return res.status(400).json({ error: 'Name, type, host, and port are required' })
@@ -64,6 +66,7 @@ class DownloadClientController {
       username: username || '',
       password: password || '',
       downloadPath: downloadPath || '',
+      hostDownloadPath: hostDownloadPath || '',
       category: category || '',
       enabled,
       createdAt: new Date().toISOString(),
@@ -94,7 +97,7 @@ class DownloadClientController {
     }
 
     const { id } = req.params
-    const { name, type, host, port, username, password, downloadPath, category, enabled } = req.body
+    const { name, type, host, port, username, password, downloadPath, hostDownloadPath, category, enabled } = req.body
 
     if (!name || !type || !host || !port) {
       return res.status(400).json({ error: 'Name, type, host, and port are required' })
@@ -120,6 +123,7 @@ class DownloadClientController {
       port: parseInt(port),
       username: username || '',
       downloadPath: downloadPath || '',
+      hostDownloadPath: hostDownloadPath !== undefined ? hostDownloadPath : clients[clientIndex].hostDownloadPath || '',
       category: category || '',
       enabled: enabled !== undefined ? enabled : clients[clientIndex].enabled,
       updatedAt: new Date().toISOString()
@@ -591,8 +595,10 @@ class DownloadClientController {
       }
       
       if (torrentData.downloadPath) {
-        formData.append('savepath', torrentData.downloadPath)
-        Logger.debug(`[DownloadClientController] Setting save path: ${torrentData.downloadPath}`)
+        // Use hostDownloadPath if configured, otherwise fall back to downloadPath
+        const hostPath = client.hostDownloadPath || torrentData.downloadPath
+        formData.append('savepath', hostPath)
+        Logger.debug(`[DownloadClientController] Setting save path: ${hostPath} (using ${client.hostDownloadPath ? 'host path' : 'container path'})`)
       }
 
       Logger.debug(`[DownloadClientController] Form data: ${formData.toString()}`)
@@ -816,6 +822,10 @@ class DownloadClientController {
    * @returns {Promise<Object>}
    */
   static async addTorrentTransmission(client, torrentData) {
+    // Use hostDownloadPath if configured, otherwise fall back to downloadPath
+    const hostPath = client.hostDownloadPath || torrentData.downloadPath
+    Logger.debug(`[DownloadClientController] Transmission download path: ${hostPath} (using ${client.hostDownloadPath ? 'host path' : 'container path'})`)
+    
     // Implement Transmission RPC call
     throw new Error('Transmission torrent adding not yet implemented')
   }
@@ -853,6 +863,10 @@ class DownloadClientController {
    * @returns {Promise<Object>}
    */
   static async addTorrentDeluge(client, torrentData) {
+    // Use hostDownloadPath if configured, otherwise fall back to downloadPath
+    const hostPath = client.hostDownloadPath || torrentData.downloadPath
+    Logger.debug(`[DownloadClientController] Deluge download path: ${hostPath} (using ${client.hostDownloadPath ? 'host path' : 'container path'})`)
+    
     // Implement Deluge JSON-RPC call
     throw new Error('Deluge torrent adding not yet implemented')
   }
@@ -890,6 +904,10 @@ class DownloadClientController {
    * @returns {Promise<Object>}
    */
   static async addTorrentRTorrent(client, torrentData) {
+    // Use hostDownloadPath if configured, otherwise fall back to downloadPath
+    const hostPath = client.hostDownloadPath || torrentData.downloadPath
+    Logger.debug(`[DownloadClientController] rTorrent download path: ${hostPath} (using ${client.hostDownloadPath ? 'host path' : 'container path'})`)
+    
     // Implement rTorrent XML-RPC call
     throw new Error('rTorrent torrent adding not yet implemented')
   }
