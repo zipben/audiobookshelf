@@ -116,6 +116,11 @@ export default {
           path: '/config/jackett-integrations'
         },
         {
+          id: 'config-download-clients',
+          title: 'Download Clients',
+          path: '/config/download-clients'
+        },
+        {
           id: 'styling',
           title: this.$strings.HeaderStyling,
           path: '/config/styling'

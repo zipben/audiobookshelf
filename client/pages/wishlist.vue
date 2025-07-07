@@ -21,14 +21,15 @@
                 <p v-if="book.publishedDate" class="text-xs text-gray-400">{{ book.publishedDate }}</p>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0">
-                <button @click="addBookFromSearch(book, 'audiobook')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors flex items-center space-x-1">
-                  <span class="material-symbols text-sm">headphones</span>
-                  <span>Audiobook</span>
-                </button>
-                <button @click="addBookFromSearch(book, 'ebook')" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors flex items-center space-x-1">
-                  <span class="material-symbols text-sm">book</span>
-                  <span>Ebook</span>
-                </button>
+                <div v-if="libraries.length > 0" class="relative">
+                  <select @change="handleLibrarySelection(book, $event)" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors">
+                    <option value="">Select Library</option>
+                    <option v-for="library in libraries" :key="library.id" :value="library.id">{{ library.name }}</option>
+                  </select>
+                </div>
+                <div v-else class="px-3 py-1 bg-gray-600 text-gray-300 text-xs rounded-md">
+                  <span>No libraries available</span>
+                </div>
               </div>
             </div>
           </div>
@@ -42,61 +43,91 @@
 
         <div v-if="wishlistItems.length" class="bg-primary/20 rounded-lg overflow-hidden">
           <div class="mb-2 p-2 text-xs text-gray-400">Debug: {{ wishlistItems.length }} items, User: {{ currentUserId }}, Admin: {{ userIsAdminOrUp }}</div>
-          <table class="w-full">
+          <table class="w-full table-fixed">
             <thead class="bg-primary/40">
               <tr class="border-b border-gray-600">
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Cover</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Title</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Author</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Year</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Format</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-gray-200">Notes</th>
-                <th class="text-center px-4 py-3 text-sm font-semibold text-gray-200">Actions</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-12">Cover</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-40">Title</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-28">Author</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-12">Year</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-16">Library</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-24">Notes</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-32">Progress</th>
+                <th class="text-center px-2 py-3 text-sm font-semibold text-gray-200 w-20">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="item in wishlistItems" :key="item.id" class="border-b border-gray-600/50 hover:bg-primary/10 transition-colors">
-                <td class="px-4 py-3">
-                  <img v-if="item.thumbnail" :src="item.thumbnail" :alt="item.title" class="w-10 h-12 object-cover rounded shadow-sm" @error="handleImageError" />
-                  <div v-else class="w-10 h-12 bg-gray-600 rounded flex items-center justify-center">
-                    <span class="material-symbols text-gray-400 text-lg">book</span>
+                <td class="px-2 py-3 w-12">
+                  <img v-if="item.thumbnail" :src="item.thumbnail" :alt="item.title" class="w-8 h-10 object-cover rounded shadow-sm" @error="handleImageError" />
+                  <div v-else class="w-8 h-10 bg-gray-600 rounded flex items-center justify-center">
+                    <span class="material-symbols text-gray-400 text-sm">book</span>
                   </div>
                 </td>
-                <td class="px-4 py-3">
-                  <h3 class="font-medium text-white text-sm leading-tight">{{ item.title }}</h3>
+                <td class="px-2 py-3 w-40">
+                  <h3 class="font-medium text-white text-sm leading-tight truncate" :title="item.title">{{ item.title }}</h3>
                 </td>
-                <td class="px-4 py-3">
-                  <p class="text-sm text-gray-300">{{ item.author || 'Unknown Author' }}</p>
+                <td class="px-2 py-3 w-28">
+                  <p class="text-sm text-gray-300 truncate" :title="item.author || 'Unknown Author'">{{ item.author || 'Unknown Author' }}</p>
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-2 py-3 w-12">
                   <p class="text-sm text-gray-400">{{ item.publishedDate ? item.publishedDate.split('-')[0] : '-' }}</p>
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-2 py-3 w-16">
                   <div class="flex items-center space-x-1">
-                    <span v-if="item.formats && item.formats.includes('audiobook')" class="inline-flex items-center px-2 py-1 bg-blue-600/20 text-blue-300 text-xs rounded-md">
-                      <span class="material-symbols text-xs mr-1">headphones</span>
-                      Audio
+                    <span v-if="item.library" class="inline-flex items-center px-1 py-0.5 bg-purple-600/20 text-purple-300 text-xs rounded">
+                      <ui-library-icon :icon="item.library.icon" class="mr-0.5" />
+                      {{ item.library.name }}
                     </span>
-                    <span v-if="item.formats && item.formats.includes('ebook')" class="inline-flex items-center px-2 py-1 bg-green-600/20 text-green-300 text-xs rounded-md">
-                      <span class="material-symbols text-xs mr-1">book</span>
-                      Ebook
-                    </span>
-                    <span v-if="!item.formats || item.formats.length === 0" class="text-sm text-gray-400"> - </span>
+                    <span v-else class="text-sm text-gray-400"> - </span>
                   </div>
                 </td>
-                <td class="px-4 py-3">
-                  <p class="text-sm text-gray-400 truncate max-w-xs">{{ item.notes || '-' }}</p>
+                <td class="px-2 py-3 w-24">
+                  <p class="text-sm text-gray-400 truncate" :title="item.notes || '-'">{{ item.notes || '-' }}</p>
                 </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-center space-x-2">
+                <td class="px-2 py-3 w-32">
+                  <div class="w-full">
+                    <div v-if="getDownloadProgress(item.id) && getDownloadProgress(item.id).length > 0" class="space-y-1">
+                      <div v-for="download in getDownloadProgress(item.id)" :key="download.hash" class="space-y-1">
+                        <div class="flex items-center justify-between text-xs">
+                          <span class="text-gray-300 truncate flex-1 mr-1" :title="download.name">{{ download.name }}</span>
+                          <div class="flex items-center space-x-1 flex-shrink-0">
+                            <span class="text-gray-400 text-xs">{{ Math.round(download.progress * 100) }}%</span>
+                            <button v-if="download.progress === 1" @click="importDownload(item, download)" :disabled="importingDownloads[download.hash]" class="text-green-400 hover:text-green-300 transition-colors" title="Import to library">
+                              <span v-if="importingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
+                              <span v-else class="material-symbols text-xs">download_done</span>
+                            </button>
+                            <button v-else @click="cancelSpecificDownload(item, download)" :disabled="cancellingDownloads[download.hash]" class="text-red-400 hover:text-red-300 transition-colors" title="Cancel this download">
+                              <span v-if="cancellingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
+                              <span v-else class="material-symbols text-xs">cancel</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-1">
+                          <div class="bg-green-500 h-1 rounded-full transition-all duration-300" :style="{ width: Math.round(download.progress * 100) + '%' }"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-gray-400">
+                          <span class="truncate flex-1 mr-1">{{ download.state }}</span>
+                          <span v-if="download.dlspeed > 0" class="flex-shrink-0 text-xs">{{ formatBytes(download.dlspeed) }}/s</span>
+                        </div>
+                        <div v-if="download.totalSize > 0" class="flex items-center justify-between text-xs text-gray-500">
+                          <span class="truncate flex-1 mr-1">{{ formatBytes(download.downloaded || 0) }} / {{ formatBytes(download.totalSize) }}</span>
+                          <span class="flex-shrink-0 text-xs">{{ (((download.downloaded || 0) / download.totalSize) * 100).toFixed(1) }}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-2 py-3 w-20">
+                  <div class="flex items-center justify-center space-x-1 flex-shrink-0">
                     <button @click="searchAnnaArchive(item)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Search on Anna's Archive">
-                      <span class="material-symbols text-lg">search</span>
+                      <span class="material-symbols text-sm">search</span>
                     </button>
-                    <button @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
-                      <span class="material-symbols text-lg">link</span>
+                    <button v-if="userIsAdminOrUp" @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
+                      <span class="material-symbols text-sm">link</span>
                     </button>
                     <button @click="deleteWishlistItem(item)" class="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete from wishlist">
-                      <span class="material-symbols text-lg">delete</span>
+                      <span class="material-symbols text-sm">delete</span>
                     </button>
                   </div>
                 </td>
@@ -230,12 +261,16 @@
                   <td class="py-2 px-2">
                     <span class="text-gray-300 text-xs">{{ result.pubDate ? formatDate(result.pubDate) : '-' }}</span>
                   </td>
-                  <td class="py-2 px-2">
-                    <div class="flex items-center space-x-1">
-                      <button v-if="result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
+                  <td class="py-2 px-2 text-right">
+                    <div class="flex items-center justify-end space-x-2">
+                      <button v-if="userIsAdminOrUp && (result.magnetUrl || result.downloadUrl)" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
+                        <span v-if="downloadingTorrent === result.guid" class="material-symbols text-sm animate-spin">hourglass_empty</span>
+                        <span v-else class="material-symbols text-sm">download</span>
+                      </button>
+                      <button v-if="userIsAdminOrUp && result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
                         <span class="material-symbols text-sm">link</span>
                       </button>
-                      <button v-if="result.downloadUrl" @click="downloadTorrent(result.downloadUrl)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Download torrent file">
+                      <button v-if="userIsAdminOrUp && result.downloadUrl" @click="downloadTorrent(result.downloadUrl)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Download torrent file">
                         <span class="material-symbols text-sm">link</span>
                       </button>
                       <span v-if="!result.magnetUrl && !result.downloadUrl" class="text-gray-500 text-xs">N/A</span>
@@ -287,7 +322,12 @@
 </template>
 
 <script>
+import UiLibraryIcon from '~/components/ui/LibraryIcon.vue'
+
 export default {
+  components: {
+    UiLibraryIcon
+  },
   data() {
     return {
       loading: false,
@@ -312,7 +352,14 @@ export default {
         { text: '25', value: 25 },
         { text: '50', value: 50 },
         { text: '100', value: 100 }
-      ]
+      ],
+      downloadClients: [],
+      downloadingTorrent: null,
+      downloadProgress: {},
+      progressUpdateInterval: null,
+      cancellingDownloads: {},
+      importingDownloads: {},
+      libraries: []
     }
   },
   computed: {
@@ -455,7 +502,15 @@ export default {
         this.searchLoading = false
       }
     },
-    async addBookFromSearch(book, format) {
+    handleLibrarySelection(book, event) {
+      const libraryId = event.target.value
+      if (libraryId) {
+        this.addBookFromSearch(book, libraryId)
+        // Reset the select dropdown
+        event.target.value = ''
+      }
+    },
+    async addBookFromSearch(book, libraryId) {
       try {
         const response = await this.$axios.$post('/api/wishlist', {
           title: book.title,
@@ -467,20 +522,25 @@ export default {
           isbn: book.isbn,
           pageCount: book.pageCount,
           categories: book.categories,
-          formats: [format]
+          libraries: [libraryId]
         })
 
-        if (response.message) {
-          // Item was updated with new format
-          const existingIndex = this.wishlistItems.findIndex((item) => item.id === response.wishlistItem.id)
-          if (existingIndex !== -1) {
-            this.wishlistItems[existingIndex] = response.wishlistItem
+        if (response.wishlistItems && response.wishlistItems.length > 0) {
+          // Add the new items to the beginning of the list
+          response.wishlistItems.forEach((item) => {
+            this.wishlistItems.unshift(item)
+          })
+
+          const library = this.libraries.find((lib) => lib.id === libraryId)
+          const libraryName = library ? library.name : 'Unknown Library'
+
+          if (response.wishlistItems.length === 1) {
+            this.$toast.success(`"${book.title}" added to your wishlist in ${libraryName}!`)
+          } else {
+            this.$toast.success(`"${book.title}" added to your wishlist with ${response.wishlistItems.length} libraries!`)
           }
-          this.$toast.success(`"${book.title}" updated with ${format} format!`)
         } else {
-          // New item was added
-          this.wishlistItems.unshift(response.wishlistItem)
-          this.$toast.success(`"${book.title}" added to your wishlist as ${format}!`)
+          this.$toast.success(response.message || 'Item already exists in wishlist')
         }
 
         // Clear search
@@ -520,6 +580,9 @@ export default {
       this.sortColumn = ''
       this.sortDirection = 'desc'
       this.currentPage = 1
+
+      // Load download clients for the modal
+      await this.loadDownloadClients()
 
       // Auto-trigger search
       this.$nextTick(() => {
@@ -640,15 +703,215 @@ export default {
       if (!searchContainer || !searchContainer.querySelector('input[v-model="searchQuery"]')) {
         this.searchResults = []
       }
+    },
+    async loadDownloadClients() {
+      if (!this.userIsAdminOrUp) return
+
+      try {
+        const response = await this.$axios.$get('/api/download-clients')
+        this.downloadClients = response.clients || []
+      } catch (error) {
+        console.error('Failed to load download clients:', error)
+      }
+    },
+    async loadLibraries() {
+      try {
+        const response = await this.$axios.$get('/api/libraries')
+        this.libraries = response.libraries || []
+      } catch (error) {
+        console.error('Failed to load libraries:', error)
+      }
+    },
+    async addToDownloadClient(result) {
+      if (!this.userIsAdminOrUp) {
+        this.$toast.error('Only administrators can use download clients')
+        return
+      }
+
+      if (!result.magnetUrl && !result.downloadUrl) {
+        this.$toast.error('No download URL available for this torrent')
+        return
+      }
+
+      // Get enabled download clients
+      const enabledClients = this.downloadClients.filter((client) => client.enabled)
+
+      if (enabledClients.length === 0) {
+        this.$toast.error('No download clients configured. Please add a download client in settings.')
+        return
+      }
+
+      let selectedClient
+      if (enabledClients.length === 1) {
+        // Use the only available client
+        selectedClient = enabledClients[0]
+      } else {
+        // Show selection dialog for multiple clients
+        const clientNames = enabledClients.map((client) => client.name)
+        const selectedIndex = await this.showClientSelectionDialog(clientNames)
+        if (selectedIndex === -1) return // User cancelled
+        selectedClient = enabledClients[selectedIndex]
+      }
+
+      this.downloadingTorrent = result.guid
+
+      try {
+        const payload = {
+          magnetUrl: result.magnetUrl,
+          downloadUrl: result.downloadUrl,
+          wishlistItemId: this.selectedBook?.id
+        }
+
+        await this.$axios.$post(`/api/download-clients/${selectedClient.id}/add-torrent`, payload)
+        this.$toast.success(`Torrent added to ${selectedClient.name}`)
+
+        // Start progress monitoring
+        this.startProgressMonitoring()
+      } catch (error) {
+        console.error('Failed to add torrent to download client:', error)
+        const errorMessage = error.response?.data?.message || 'Failed to add torrent to download client'
+        this.$toast.error(errorMessage)
+      } finally {
+        this.downloadingTorrent = null
+      }
+    },
+    async showClientSelectionDialog(clientNames) {
+      return new Promise((resolve) => {
+        // Create a selection dialog using a simple prompt for now
+        // In a production app, this would be a proper modal component
+        let message = 'Multiple download clients available. Select one:\n\n'
+        clientNames.forEach((name, index) => {
+          message += `${index + 1}. ${name}\n`
+        })
+        message += '\nEnter the number of your choice (1-' + clientNames.length + '), or press Cancel:'
+
+        const input = prompt(message)
+        if (input === null || input.trim() === '') {
+          resolve(-1) // User cancelled
+          return
+        }
+
+        const selection = parseInt(input.trim()) - 1
+        if (selection >= 0 && selection < clientNames.length) {
+          resolve(selection)
+        } else {
+          this.$toast.error(`Invalid selection. Please enter a number between 1 and ${clientNames.length}`)
+          resolve(-1)
+        }
+      })
+    },
+    getDownloadProgress(wishlistItemId) {
+      return this.downloadProgress[wishlistItemId] || []
+    },
+    async fetchDownloadProgress() {
+      if (!this.userIsAdminOrUp) return
+
+      try {
+        const response = await this.$axios.$get('/api/download-clients/progress')
+
+        // The API now returns progress data already mapped by wishlist item ID
+        this.downloadProgress = response.progressByWishlistItem || {}
+      } catch (error) {
+        console.error('Failed to fetch download progress:', error)
+        this.downloadProgress = {}
+      }
+    },
+    startProgressMonitoring() {
+      if (this.progressUpdateInterval) {
+        clearInterval(this.progressUpdateInterval)
+      }
+
+      // Initial fetch
+      this.fetchDownloadProgress()
+
+      // Set up periodic updates every 5 seconds
+      this.progressUpdateInterval = setInterval(() => {
+        this.fetchDownloadProgress()
+      }, 5000)
+    },
+    stopProgressMonitoring() {
+      if (this.progressUpdateInterval) {
+        clearInterval(this.progressUpdateInterval)
+        this.progressUpdateInterval = null
+      }
+    },
+    formatBytes(bytes) {
+      if (bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    },
+    async cancelSpecificDownload(item, download) {
+      if (!this.userIsAdminOrUp) {
+        this.$toast.error('Only administrators can cancel downloads')
+        return
+      }
+
+      this.$set(this.cancellingDownloads, download.hash, true)
+
+      try {
+        await this.$axios.$delete(`/api/download-clients/${download.clientId}/torrents/${download.hash}?wishlistItemId=${item.id}`)
+
+        this.$toast.success(`Download cancelled: "${download.name}"`)
+
+        // Refresh progress data to update the UI
+        this.fetchDownloadProgress()
+      } catch (error) {
+        console.error('Failed to cancel download:', error)
+        const errorMessage = error.response?.data?.message || 'Failed to cancel download'
+        this.$toast.error(errorMessage)
+      } finally {
+        this.$delete(this.cancellingDownloads, download.hash)
+      }
+    },
+    async importDownload(item, download) {
+      if (!this.userIsAdminOrUp) {
+        this.$toast.error('Only administrators can import downloads')
+        return
+      }
+
+      console.log('Importing download:', { item, download })
+      this.$set(this.importingDownloads, download.hash, true)
+
+      try {
+        console.log('Making import request:', `/api/download-clients/import/${item.id}`, { hash: download.hash })
+        await this.$axios.$post(`/api/download-clients/import/${item.id}`, {
+          hash: download.hash
+        })
+
+        this.$toast.success(`Successfully imported "${download.name}" to library`)
+
+        // Refresh progress data to update the UI
+        this.fetchDownloadProgress()
+      } catch (error) {
+        console.error('Failed to import download:', error)
+        console.error('Error details:', error.response?.data || error.message)
+        const errorMessage = error.response?.data?.message || 'Failed to import download'
+        this.$toast.error(errorMessage)
+      } finally {
+        this.$delete(this.importingDownloads, download.hash)
+      }
     }
   },
   mounted() {
     console.log('Component mounted - wishlist items:', this.wishlistItems.length)
     this.loadWishlistItems()
+    this.loadDownloadClients()
+    this.loadLibraries()
+
+    // Start progress monitoring if user is admin
+    if (this.userIsAdminOrUp) {
+      this.startProgressMonitoring()
+    }
+
     // Add click outside handler to close search results
     document.addEventListener('click', this.handleClickOutside)
   },
   beforeDestroy() {
+    // Stop progress monitoring
+    this.stopProgressMonitoring()
+
     // Remove click outside handler
     document.removeEventListener('click', this.handleClickOutside)
   }

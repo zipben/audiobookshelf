@@ -23,6 +23,13 @@ class WishlistController {
         where: {
           userId: req.user.id
         },
+        include: [
+          {
+            model: Database.libraryModel,
+            as: 'library',
+            attributes: ['id', 'name', 'mediaType', 'icon']
+          }
+        ],
         order: [['createdAt', 'DESC']]
       })
 
@@ -42,61 +49,103 @@ class WishlistController {
    */
   static async addWishlistItem(req, res) {
     try {
-      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, formats } = req.body
+      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, libraries } = req.body
 
       if (!title) {
         return res.status(400).json({ error: 'Title is required' })
       }
 
-      // Check if item already exists for this user
-      const existingItem = await Database.wishlistItemModel.findOne({
-        where: {
-          userId: req.user.id,
-          title: title,
-          author: author || null
-        }
-      })
-
-      if (existingItem) {
-        // Check if we're adding a new format to existing item
-        if (formats && formats.length > 0) {
-          const existingFormats = existingItem.formats || []
-          const newFormats = [...new Set([...existingFormats, ...formats])]
-          
-          if (newFormats.length > existingFormats.length) {
-            existingItem.formats = newFormats
-            await existingItem.save()
-            
-            Logger.info(`[WishlistController] Updated formats for existing item "${title}" for user ${req.user.id}`)
-            return res.json({ 
-              wishlistItem: existingItem.toJSON(),
-              message: 'Item updated with new format'
-            })
-          } else {
-            return res.status(400).json({ error: 'Item already exists in wishlist with this format' })
-          }
-        } else {
-          return res.status(400).json({ error: 'Item already exists in wishlist' })
-        }
+      const librariesToAdd = libraries || []
+      if (librariesToAdd.length === 0) {
+        return res.status(400).json({ error: 'At least one library is required' })
       }
 
-      // Create new wishlist item
-      const wishlistItem = await Database.wishlistItemModel.create({
-        title,
-        author,
-        notes,
-        thumbnail,
-        publishedDate,
-        description,
-        isbn,
-        pageCount,
-        categories,
-        formats: formats || [],
-        userId: req.user.id
+      const createdItems = []
+      const existingItems = []
+
+      // Create separate items for each library
+      for (const libraryId of librariesToAdd) {
+        // Validate that the library exists and user has access
+        const library = await Database.libraryModel.findByPk(libraryId)
+        if (!library) {
+          return res.status(400).json({ error: `Library with ID ${libraryId} not found` })
+        }
+
+        // Check if user has access to this library
+        const userCanAccessLibrary = req.user.checkCanAccessLibrary(libraryId)
+        if (!userCanAccessLibrary) {
+          return res.status(403).json({ error: `Access denied to library "${library.name}"` })
+        }
+
+        // Check if item already exists for this user with this specific library
+        const existingItem = await Database.wishlistItemModel.findOne({
+          where: {
+            userId: req.user.id,
+            title: title,
+            author: author || null,
+            libraryId: libraryId
+          }
+        })
+
+        if (existingItem) {
+          existingItems.push(existingItem)
+          continue
+        }
+
+        // Create new wishlist item for this library
+        const wishlistItem = await Database.wishlistItemModel.create({
+          title,
+          author,
+          notes,
+          thumbnail,
+          publishedDate,
+          description,
+          isbn,
+          pageCount,
+          categories,
+          libraryId,
+          userId: req.user.id
+        })
+
+        createdItems.push(wishlistItem)
+        Logger.info(`[WishlistController] Added item "${title}" to library "${library.name}" in wishlist for user ${req.user.id}`)
+      }
+
+      if (createdItems.length === 0 && existingItems.length > 0) {
+        return res.status(400).json({ error: 'All items already exist in wishlist with specified libraries' })
+      }
+
+      // Return the created items (or existing ones if nothing was created) with library information
+      const items = createdItems.length > 0 ? createdItems : existingItems
+      
+      // Re-fetch the items with library information included
+      const itemsWithLibrary = await Database.wishlistItemModel.findAll({
+        where: {
+          id: items.map(item => item.id)
+        },
+        include: [
+          {
+            model: Database.libraryModel,
+            as: 'library',
+            attributes: ['id', 'name', 'mediaType', 'icon']
+          }
+        ],
+        order: [['createdAt', 'DESC']]
       })
 
-      Logger.info(`[WishlistController] Added item "${title}" to wishlist for user ${req.user.id}`)
-      res.status(201).json({ wishlistItem: wishlistItem.toJSON() })
+      const responseItems = itemsWithLibrary.map(item => item.toJSON())
+
+      if (createdItems.length > 0) {
+        res.status(201).json({ 
+          wishlistItems: responseItems,
+          message: `Added ${createdItems.length} item(s) to wishlist`
+        })
+      } else {
+        res.json({ 
+          wishlistItems: responseItems,
+          message: 'Items already exist in wishlist'
+        })
+      }
 
     } catch (error) {
       Logger.error(`[WishlistController] Error adding wishlist item for user ${req.user.id}:`, error)
@@ -114,7 +163,7 @@ class WishlistController {
   static async updateWishlistItem(req, res) {
     try {
       const { id } = req.params
-      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, formats } = req.body
+      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, libraryId } = req.body
 
       const wishlistItem = await Database.wishlistItemModel.findOne({
         where: {
@@ -125,6 +174,22 @@ class WishlistController {
 
       if (!wishlistItem) {
         return res.status(404).json({ error: 'Wishlist item not found' })
+      }
+
+      // If libraryId is being updated, validate the library
+      if (libraryId !== undefined && libraryId !== wishlistItem.libraryId) {
+        if (libraryId) {
+          const library = await Database.libraryModel.findByPk(libraryId)
+          if (!library) {
+            return res.status(400).json({ error: `Library with ID ${libraryId} not found` })
+          }
+
+          // Check if user has access to this library
+          const userCanAccessLibrary = req.user.checkCanAccessLibrary(libraryId)
+          if (!userCanAccessLibrary) {
+            return res.status(403).json({ error: `Access denied to library "${library.name}"` })
+          }
+        }
       }
 
       // Update the item
@@ -138,11 +203,30 @@ class WishlistController {
         isbn: isbn !== undefined ? isbn : wishlistItem.isbn,
         pageCount: pageCount !== undefined ? pageCount : wishlistItem.pageCount,
         categories: categories !== undefined ? categories : wishlistItem.categories,
-        formats: formats !== undefined ? formats : wishlistItem.formats
+        libraryId: libraryId !== undefined ? libraryId : wishlistItem.libraryId
       })
 
-      Logger.info(`[WishlistController] Updated wishlist item "${wishlistItem.title}" for user ${req.user.id}`)
-      res.json({ wishlistItem: wishlistItem.toJSON() })
+      // Get library name for logging
+      const library = wishlistItem.libraryId ? await Database.libraryModel.findByPk(wishlistItem.libraryId) : null
+      const libraryName = library ? library.name : 'No Library'
+
+      Logger.info(`[WishlistController] Updated wishlist item "${wishlistItem.title}" in library "${libraryName}" for user ${req.user.id}`)
+      
+      // Re-fetch the item with library information included
+      const updatedItemWithLibrary = await Database.wishlistItemModel.findOne({
+        where: {
+          id: wishlistItem.id
+        },
+        include: [
+          {
+            model: Database.libraryModel,
+            as: 'library',
+            attributes: ['id', 'name', 'mediaType', 'icon']
+          }
+        ]
+      })
+      
+      res.json({ wishlistItem: updatedItemWithLibrary.toJSON() })
 
     } catch (error) {
       Logger.error(`[WishlistController] Error updating wishlist item for user ${req.user.id}:`, error)

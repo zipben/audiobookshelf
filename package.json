@@ -1,6 +1,6 @@
 {
   "name": "audiobookshelf",
-  "version": "2.24.1",
+  "version": "2.25.3",
   "buildNumber": 1,
   "description": "Self-hosted audiobook and podcast server",
   "main": "index.js",
@@ -40,6 +40,7 @@
     "cookie-parser": "^1.4.6",
     "express": "^4.17.1",
     "express-session": "^1.17.3",
+    "fs-extra": "^11.3.0",
     "graceful-fs": "^4.2.10",
     "htmlparser2": "^8.0.1",
     "lru-cache": "^10.0.3",

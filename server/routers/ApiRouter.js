@@ -35,6 +35,7 @@ const MiscController = require('../controllers/MiscController')
 const ShareController = require('../controllers/ShareController')
 const StatsController = require('../controllers/StatsController')
 const JackettController = require('../controllers/JackettController')
+const DownloadClientController = require('../controllers/DownloadClientController')
 const WishlistController = require('../controllers/WishlistController')
 
 class ApiRouter {
@@ -346,12 +347,25 @@ class ApiRouter {
     this.router.post('/jackett/search', JackettController.search)
 
     //
+    // Download Client Routes (Admin only)
+    //
+    this.router.get('/download-clients', DownloadClientController.getClients.bind(DownloadClientController))
+    this.router.post('/download-clients', DownloadClientController.createClient.bind(DownloadClientController))
+    this.router.put('/download-clients/:id', DownloadClientController.updateClient.bind(DownloadClientController))
+    this.router.delete('/download-clients/:id', DownloadClientController.deleteClient.bind(DownloadClientController))
+    this.router.post('/download-clients/:id/test', DownloadClientController.testClient.bind(DownloadClientController))
+    this.router.post('/download-clients/:id/add-torrent', DownloadClientController.addTorrent.bind(DownloadClientController))
+    this.router.post('/download-clients/import/:wishlistItemId', DownloadClientController.manualImport.bind(DownloadClientController))
+    this.router.delete('/download-clients/:id/torrents/:hash', DownloadClientController.cancelDownload.bind(DownloadClientController))
+    this.router.get('/download-clients/progress', DownloadClientController.getDownloadProgress.bind(DownloadClientController))
+
+    //
     // Wishlist Routes
     //
-    this.router.get('/wishlist', WishlistController.getWishlistItems.bind(this))
-    this.router.post('/wishlist', WishlistController.addWishlistItem.bind(this))
-    this.router.put('/wishlist/:id', WishlistController.updateWishlistItem.bind(this))
-    this.router.delete('/wishlist/:id', WishlistController.deleteWishlistItem.bind(this))
+    this.router.get('/wishlist', WishlistController.getWishlistItems)
+    this.router.post('/wishlist', WishlistController.addWishlistItem)
+    this.router.put('/wishlist/:id', WishlistController.updateWishlistItem)
+    this.router.delete('/wishlist/:id', WishlistController.deleteWishlistItem)
 
     //
     // Misc Routes

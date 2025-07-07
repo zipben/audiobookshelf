@@ -45,7 +45,17 @@ class WishlistItem extends Model {
           type: DataTypes.JSON,
           allowNull: true
         },
-        formats: {
+        libraryId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'libraries',
+            key: 'id'
+          },
+          onDelete: 'SET NULL',
+          onUpdate: 'CASCADE'
+        },
+        pendingDownloads: {
           type: DataTypes.JSON,
           allowNull: true,
           defaultValue: []
@@ -85,10 +95,14 @@ class WishlistItem extends Model {
       foreignKey: 'userId',
       as: 'user'
     })
+    WishlistItem.belongsTo(models.library, {
+      foreignKey: 'libraryId',
+      as: 'library'
+    })
   }
 
   toJSON() {
-    return {
+    const json = {
       id: this.id,
       title: this.title,
       author: this.author,
@@ -99,12 +113,25 @@ class WishlistItem extends Model {
       isbn: this.isbn,
       pageCount: this.pageCount,
       categories: this.categories,
-      formats: this.formats,
+      libraryId: this.libraryId,
+      pendingDownloads: this.pendingDownloads || [],
       userId: this.userId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       addedAt: this.createdAt // For backward compatibility with frontend
     }
+
+    // Include library data if it's loaded
+    if (this.library) {
+      json.library = {
+        id: this.library.id,
+        name: this.library.name,
+        mediaType: this.library.mediaType,
+        icon: this.library.icon
+      }
+    }
+
+    return json
   }
 }
 
