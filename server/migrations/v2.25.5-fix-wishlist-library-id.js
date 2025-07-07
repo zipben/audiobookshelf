@@ -10,6 +10,16 @@
 async function up({ context: { queryInterface, logger } }) {
   logger.info('[Migration v2.25.5] Fixing libraryId column type and constraints...')
 
+  // Get the first library ID to use as default
+  const [libraries] = await queryInterface.sequelize.query(`
+    SELECT id FROM libraries LIMIT 1;
+  `)
+  if (!libraries.length) {
+    throw new Error('No libraries found in the database')
+  }
+  const defaultLibraryId = libraries[0].id
+  logger.info(`[Migration v2.25.5] Using default library ID: ${defaultLibraryId}`)
+
   // Create a backup of the wishlistItems table
   await queryInterface.sequelize.query(`
     CREATE TABLE wishlistItems_backup AS SELECT * FROM wishlistItems;
@@ -44,7 +54,7 @@ async function up({ context: { queryInterface, logger } }) {
   `)
   logger.info('[Migration v2.25.5] Created new table with correct column types')
 
-  // Copy the data back with explicit column list
+  // Copy the data back with explicit column list, using the default library ID
   await queryInterface.sequelize.query(`
     INSERT INTO wishlistItems (
       id, title, author, notes, thumbnail, publishedDate, description, isbn, 
@@ -53,7 +63,7 @@ async function up({ context: { queryInterface, logger } }) {
     ) 
     SELECT 
       id, title, author, notes, thumbnail, publishedDate, description, isbn, 
-      pageCount, categories, libraryId, pendingDownloads, userId, 
+      pageCount, categories, '${defaultLibraryId}', pendingDownloads, userId, 
       createdAt, updatedAt 
     FROM wishlistItems_backup;
   `)
