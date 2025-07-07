@@ -13,13 +13,13 @@ const Logger = require('../Logger')
 async function up({ context: { queryInterface, Database, logger } }) {
   logger.info('[Migration v2.25.1] Converting wishlist formats to separate items...')
 
-  // First, check if format column exists
-  const [columns] = await queryInterface.sequelize.query(
-    "PRAGMA table_info(wishlistItems)",
+  // First, check if format column exists using raw SQL
+  const tableInfo = await queryInterface.sequelize.query(
+    "SELECT * FROM pragma_table_info('wishlistItems')",
     { type: queryInterface.sequelize.QueryTypes.SELECT }
   )
   
-  const hasFormat = columns.some(col => col.name === 'format')
+  const hasFormat = tableInfo.find(col => col.name === 'format')
   
   if (!hasFormat) {
     // Add the new format column using raw SQL
