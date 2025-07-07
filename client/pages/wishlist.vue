@@ -93,7 +93,11 @@
                           <span class="text-gray-300 truncate flex-1 mr-1" :title="download.name">{{ download.name }}</span>
                           <div class="flex items-center space-x-1 flex-shrink-0">
                             <span class="text-gray-400 text-xs">{{ Math.round(download.progress * 100) }}%</span>
-                            <button @click="cancelSpecificDownload(item, download)" :disabled="cancellingDownloads[download.hash]" class="text-red-400 hover:text-red-300 transition-colors" title="Cancel this download">
+                            <button v-if="download.progress === 1" @click="importDownload(item, download)" :disabled="importingDownloads[download.hash]" class="text-green-400 hover:text-green-300 transition-colors" title="Import to library">
+                              <span v-if="importingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
+                              <span v-else class="material-symbols text-xs">download_done</span>
+                            </button>
+                            <button v-else @click="cancelSpecificDownload(item, download)" :disabled="cancellingDownloads[download.hash]" class="text-red-400 hover:text-red-300 transition-colors" title="Cancel this download">
                               <span v-if="cancellingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
                               <span v-else class="material-symbols text-xs">cancel</span>
                             </button>
@@ -349,6 +353,7 @@ export default {
       downloadProgress: {},
       progressUpdateInterval: null,
       cancellingDownloads: {},
+      importingDownloads: {},
       libraries: []
     }
   },
@@ -853,6 +858,34 @@ export default {
         this.$toast.error(errorMessage)
       } finally {
         this.$delete(this.cancellingDownloads, download.hash)
+      }
+    },
+    async importDownload(item, download) {
+      if (!this.userIsAdminOrUp) {
+        this.$toast.error('Only administrators can import downloads')
+        return
+      }
+
+      console.log('Importing download:', { item, download })
+      this.$set(this.importingDownloads, download.hash, true)
+
+      try {
+        console.log('Making import request:', `/api/download-clients/import/${item.id}`, { hash: download.hash })
+        await this.$axios.$post(`/api/download-clients/import/${item.id}`, {
+          hash: download.hash
+        })
+
+        this.$toast.success(`Successfully imported "${download.name}" to library`)
+
+        // Refresh progress data to update the UI
+        this.fetchDownloadProgress()
+      } catch (error) {
+        console.error('Failed to import download:', error)
+        console.error('Error details:', error.response?.data || error.message)
+        const errorMessage = error.response?.data?.message || 'Failed to import download'
+        this.$toast.error(errorMessage)
+      } finally {
+        this.$delete(this.importingDownloads, download.hash)
       }
     }
   },

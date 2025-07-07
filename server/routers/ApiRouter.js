@@ -349,14 +349,15 @@ class ApiRouter {
     //
     // Download Client Routes (Admin only)
     //
-    this.router.get('/download-clients', DownloadClientController.getClients)
-    this.router.post('/download-clients', DownloadClientController.createClient)
-    this.router.put('/download-clients/:id', DownloadClientController.updateClient)
-    this.router.delete('/download-clients/:id', DownloadClientController.deleteClient)
-    this.router.post('/download-clients/:id/test', DownloadClientController.testClient)
-    this.router.post('/download-clients/:id/add-torrent', DownloadClientController.addTorrent)
-    this.router.delete('/download-clients/:id/torrents/:hash', DownloadClientController.cancelDownload)
-    this.router.get('/download-clients/progress', DownloadClientController.getDownloadProgress)
+    this.router.get('/download-clients', DownloadClientController.getClients.bind(DownloadClientController))
+    this.router.post('/download-clients', DownloadClientController.createClient.bind(DownloadClientController))
+    this.router.put('/download-clients/:id', DownloadClientController.updateClient.bind(DownloadClientController))
+    this.router.delete('/download-clients/:id', DownloadClientController.deleteClient.bind(DownloadClientController))
+    this.router.post('/download-clients/:id/test', DownloadClientController.testClient.bind(DownloadClientController))
+    this.router.post('/download-clients/:id/add-torrent', DownloadClientController.addTorrent.bind(DownloadClientController))
+    this.router.post('/download-clients/import/:wishlistItemId', DownloadClientController.manualImport.bind(DownloadClientController))
+    this.router.delete('/download-clients/:id/torrents/:hash', DownloadClientController.cancelDownload.bind(DownloadClientController))
+    this.router.get('/download-clients/progress', DownloadClientController.getDownloadProgress.bind(DownloadClientController))
 
     //
     // Wishlist Routes

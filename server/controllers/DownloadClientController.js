@@ -2,6 +2,9 @@ const axios = require('axios')
 const Logger = require('../Logger')
 const Database = require('../Database')
 const { Op } = require('sequelize')
+const Path = require('path')
+const fsExtra = require('fs-extra')
+const fs = require('fs-extra')
 
 /**
  * @typedef RequestWithUser
@@ -728,6 +731,7 @@ class DownloadClientController {
         uploaded_session: torrent.uploaded_session,
         amount_left: torrent.amount_left,
         save_path: torrent.save_path,
+        content_path: torrent.content_path,
         completed: torrent.completed,
         max_ratio: torrent.max_ratio,
         max_seeding_time: torrent.max_seeding_time,
@@ -1108,6 +1112,159 @@ class DownloadClientController {
   static async removeTorrentRTorrent(client, hash) {
     // Implement rTorrent XML-RPC call
     throw new Error('rTorrent torrent removal not yet implemented')
+  }
+
+  /**
+   * POST: /api/download-clients/import/:wishlistItemId
+   * Manually import a completed download
+   *
+   * @param {DownloadClientControllerRequest} req
+   * @param {Response} res
+   */
+  static async manualImport(req, res) {
+    Logger.debug('[DownloadClientController] Manual import request received:', { params: req.params, body: req.body })
+
+    if (!req.user.isAdminOrUp) {
+      Logger.error(`[DownloadClientController] Non-admin user "${req.user.username}" attempted to manually import download`)
+      return res.sendStatus(403)
+    }
+
+    const { wishlistItemId } = req.params
+    const { hash } = req.body
+
+    Logger.debug('[DownloadClientController] Processing manual import:', { wishlistItemId, hash })
+
+    try {
+      // Get wishlist item
+      const wishlistItem = await Database.wishlistItemModel.findOne({
+        where: { id: wishlistItemId }
+      })
+
+      if (!wishlistItem) {
+        Logger.error(`[DownloadClientController] Wishlist item not found: ${wishlistItemId}`)
+        return res.status(404).json({ error: 'Wishlist item not found' })
+      }
+
+      Logger.debug('[DownloadClientController] Found wishlist item:', wishlistItem)
+
+      // Get download client
+      const clients = Database.serverSettings.downloadClients || []
+      const pendingDownload = wishlistItem.pendingDownloads?.find(pd => pd.hash === hash)
+      const client = clients.find(client => client.id === pendingDownload?.clientId)
+
+      if (!client) {
+        Logger.error(`[DownloadClientController] Download client not found for hash: ${hash}`)
+        return res.status(404).json({ error: 'Download client not found' })
+      }
+
+      Logger.debug('[DownloadClientController] Found download client:', client)
+
+      // Get torrent info from client
+      const torrents = await DownloadClientController.getTorrentsFromClient(client)
+      const torrent = torrents.find(t => t.hash === hash)
+
+      if (!torrent) {
+        Logger.error(`[DownloadClientController] Torrent not found in client: ${hash}`)
+        return res.status(404).json({ error: 'Torrent not found' })
+      }
+
+      Logger.debug('[DownloadClientController] Found torrent (full object):', JSON.stringify(torrent, null, 2))
+
+      if (torrent.progress < 1) {
+        Logger.error(`[DownloadClientController] Torrent not complete: ${hash} (${torrent.progress * 100}%)`)
+        return res.status(400).json({ error: 'Download is not complete' })
+      }
+
+      // Get the library for this wishlist item
+      const library = await Database.libraryModel.findByIdWithFolders(wishlistItem.libraryId)
+      if (!library || !library.libraryFolders || !library.libraryFolders.length) {
+        Logger.error(`[DownloadClientController] Library not found or has no folders: ${wishlistItem.libraryId}`)
+        return res.status(404).json({ error: 'Library not found or has no folders' })
+      }
+
+      Logger.debug('[DownloadClientController] Found library:', library)
+
+      // Use the first library folder as the destination
+      const destinationFolder = library.libraryFolders[0].path
+
+      // Use content_path from qBittorrent if available, otherwise fall back to constructing the path
+      let sourcePath
+      if (torrent.content_path) {
+        // Get the last part of the content_path (the actual folder/file name)
+        const contentName = Path.basename(torrent.content_path)
+        // Construct the container path by joining the client's downloadPath with the content name
+        sourcePath = Path.join(client.downloadPath || '', contentName)
+        Logger.debug(`[DownloadClientController] Translated host content_path "${torrent.content_path}" to container path: ${sourcePath}`)
+      } else {
+        // Extract the relative path from save_path (everything after the last directory in the path)
+        let downloadedPath = ''
+        if (torrent.save_path) {
+          // Split the save_path into parts and get the last directory name
+          const parts = torrent.save_path.split(/[\/\\]/).filter(Boolean)
+          downloadedPath = parts[parts.length - 1]
+        }
+
+        // Construct the source path using the client's downloadPath and the extracted path
+        sourcePath = downloadedPath
+          ? Path.join(client.downloadPath || '', downloadedPath, torrent.name)
+          : Path.join(client.downloadPath || '', torrent.name)
+        Logger.debug(`[DownloadClientController] Constructed source path: ${sourcePath}`)
+      }
+
+      // Get the actual name of the content for the destination
+      const contentName = Path.basename(sourcePath)
+      const destinationPath = Path.join(destinationFolder, contentName)
+
+      Logger.debug(`[DownloadClientController] Moving completed download:`, {
+        sourcePath,
+        destinationPath,
+        torrentSavePath: torrent.save_path,
+        torrentContentPath: torrent.content_path,
+        clientDownloadPath: client.downloadPath,
+        torrentName: torrent.name,
+        contentName
+      })
+
+      try {
+        // Check if source exists
+        if (!await fs.pathExists(sourcePath)) {
+          Logger.error(`[DownloadClientController] Source path does not exist: ${sourcePath}`)
+          return res.status(404).json({ error: 'Source file not found' })
+        }
+
+        // Check if destination exists
+        if (await fs.pathExists(destinationPath)) {
+          Logger.error(`[DownloadClientController] Destination path already exists: ${destinationPath}`)
+          return res.status(409).json({ error: 'File already exists in library folder' })
+        }
+
+        // Create destination directory if it doesn't exist
+        await fs.ensureDir(Path.dirname(destinationPath))
+
+        // Move the file to the library folder
+        await fs.move(sourcePath, destinationPath, { overwrite: false })
+        Logger.info(`[DownloadClientController] Successfully moved "${torrent.name}" to library folder`)
+
+        // Remove the download from pending downloads
+        await DownloadClientController.removePendingDownloadFromWishlist(wishlistItem.id, torrent.hash)
+
+        // Remove the torrent from the client (but keep the data since we moved it)
+        await DownloadClientController.removeTorrentFromClient(client, torrent.hash)
+
+        // Trigger a library scan
+        Logger.info(`[DownloadClientController] Triggering scan for library "${library.name}"`)
+        const LibraryScanner = require('../scanner/LibraryScanner')
+        await LibraryScanner.scan(library, false)
+
+        res.json({ success: true, message: 'Successfully imported download to library' })
+      } catch (error) {
+        Logger.error(`[DownloadClientController] Failed to move completed download:`, error)
+        res.status(500).json({ error: 'Failed to move download to library folder' })
+      }
+    } catch (error) {
+      Logger.error('[DownloadClientController] Failed to manually import download:', error)
+      res.status(500).json({ error: 'Failed to import download' })
+    }
   }
 }
 
