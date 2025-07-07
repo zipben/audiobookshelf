@@ -76,7 +76,7 @@
                 <td class="px-2 py-3 w-16">
                   <div class="flex items-center space-x-1">
                     <span v-if="item.library" class="inline-flex items-center px-1 py-0.5 bg-purple-600/20 text-purple-300 text-xs rounded">
-                      <span class="material-symbols text-xs mr-0.5">{{ item.library.icon || 'library_books' }}</span>
+                      <ui-library-icon :icon="item.library.icon" class="mr-0.5" />
                       {{ item.library.name }}
                     </span>
                     <span v-else class="text-sm text-gray-400"> - </span>
@@ -123,7 +123,7 @@
                     <button @click="searchAnnaArchive(item)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Search on Anna's Archive">
                       <span class="material-symbols text-sm">search</span>
                     </button>
-                    <button @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
+                    <button v-if="userIsAdminOrUp" @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
                       <span class="material-symbols text-sm">link</span>
                     </button>
                     <button @click="deleteWishlistItem(item)" class="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete from wishlist">
@@ -261,16 +261,16 @@
                   <td class="py-2 px-2">
                     <span class="text-gray-300 text-xs">{{ result.pubDate ? formatDate(result.pubDate) : '-' }}</span>
                   </td>
-                  <td class="py-2 px-2">
-                    <div class="flex items-center space-x-1">
-                      <button v-if="result.magnetUrl || result.downloadUrl" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
+                  <td class="py-2 px-2 text-right">
+                    <div class="flex items-center justify-end space-x-2">
+                      <button v-if="userIsAdminOrUp && (result.magnetUrl || result.downloadUrl)" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
                         <span v-if="downloadingTorrent === result.guid" class="material-symbols text-sm animate-spin">hourglass_empty</span>
                         <span v-else class="material-symbols text-sm">download</span>
                       </button>
-                      <button v-if="result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
+                      <button v-if="userIsAdminOrUp && result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
                         <span class="material-symbols text-sm">link</span>
                       </button>
-                      <button v-if="result.downloadUrl" @click="downloadTorrent(result.downloadUrl)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Download torrent file">
+                      <button v-if="userIsAdminOrUp && result.downloadUrl" @click="downloadTorrent(result.downloadUrl)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Download torrent file">
                         <span class="material-symbols text-sm">link</span>
                       </button>
                       <span v-if="!result.magnetUrl && !result.downloadUrl" class="text-gray-500 text-xs">N/A</span>
@@ -322,7 +322,12 @@
 </template>
 
 <script>
+import UiLibraryIcon from '~/components/ui/LibraryIcon.vue'
+
 export default {
+  components: {
+    UiLibraryIcon
+  },
   data() {
     return {
       loading: false,
