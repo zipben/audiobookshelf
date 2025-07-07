@@ -19,10 +19,10 @@ async function up({ context: { queryInterface, logger } }) {
   const hasLibraryId = tableInfo.find(col => col.name === 'libraryId')
   
   if (!hasLibraryId) {
-    // Add the new libraryId column using raw SQL
-    await queryInterface.sequelize.query(
-      'ALTER TABLE wishlistItems ADD COLUMN libraryId TEXT'
-    )
+    // Add the new libraryId column using raw SQL with UUID type and foreign key constraint
+    await queryInterface.sequelize.query(`
+      ALTER TABLE wishlistItems ADD COLUMN libraryId CHAR(36) REFERENCES libraries(id) ON DELETE SET NULL ON UPDATE CASCADE
+    `)
     logger.info('[Migration v2.25.3] Added libraryId column')
   } else {
     logger.info('[Migration v2.25.3] libraryId column already exists')
