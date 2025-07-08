@@ -5,6 +5,7 @@ const { Op } = require('sequelize')
 const Path = require('path')
 const fsExtra = require('fs-extra')
 const fs = require('fs-extra')
+const FormData = require('form-data')
 
 /**
  * @typedef RequestWithUser
@@ -547,35 +548,49 @@ class DownloadClientController {
       // If we have a download URL but no magnet URL, follow redirects to get the actual magnet link
       if (!actualMagnetUrl && torrentData.downloadUrl) {
         Logger.debug(`[DownloadClientController] Following redirect for download URL: ${torrentData.downloadUrl}`)
-        try {
-          const redirectResponse = await axios.get(torrentData.downloadUrl, {
-            maxRedirects: 0,
-            validateStatus: status => status === 302 || status === 301,
-            timeout: 10000
-          })
-          
-          const location = redirectResponse.headers.location
-          if (location && location.startsWith('magnet:')) {
-            actualMagnetUrl = location
-            Logger.debug(`[DownloadClientController] Found magnet URL from redirect: ${actualMagnetUrl}`)
-          } else {
-            Logger.error(`[DownloadClientController] Redirect did not return a magnet URL. Location: ${location}`)
-            throw new Error(`Invalid redirect location: ${location}`)
-          }
-        } catch (error) {
-          if (error.response && (error.response.status === 302 || error.response.status === 301)) {
-            // This is actually the expected behavior - we got a redirect
-            const location = error.response.headers.location
+        let retryCount = 0;
+        const maxRetries = 3;
+        const timeoutMs = 30000; // 30 seconds timeout
+
+        while (retryCount < maxRetries) {
+          try {
+            const redirectResponse = await axios.get(torrentData.downloadUrl, {
+              maxRedirects: 0,
+              validateStatus: status => status === 302 || status === 301,
+              timeout: timeoutMs
+            })
+            
+            const location = redirectResponse.headers.location
             if (location && location.startsWith('magnet:')) {
               actualMagnetUrl = location
               Logger.debug(`[DownloadClientController] Found magnet URL from redirect: ${actualMagnetUrl}`)
+              break;
             } else {
               Logger.error(`[DownloadClientController] Redirect did not return a magnet URL. Location: ${location}`)
               throw new Error(`Invalid redirect location: ${location}`)
             }
-          } else {
-            Logger.error(`[DownloadClientController] Failed to follow redirect: ${error.message}`)
-            throw new Error(`Failed to resolve download URL: ${error.message}`)
+          } catch (error) {
+            if (error.response && (error.response.status === 302 || error.response.status === 301)) {
+              // This is actually the expected behavior - we got a redirect
+              const location = error.response.headers.location
+              if (location && location.startsWith('magnet:')) {
+                actualMagnetUrl = location
+                Logger.debug(`[DownloadClientController] Found magnet URL from redirect: ${actualMagnetUrl}`)
+                break;
+              } else {
+                Logger.error(`[DownloadClientController] Redirect did not return a magnet URL. Location: ${location}`)
+                throw new Error(`Invalid redirect location: ${location}`)
+              }
+            } else {
+              retryCount++;
+              if (retryCount === maxRetries) {
+                Logger.error(`[DownloadClientController] Failed to follow redirect after ${maxRetries} attempts: ${error.message}`)
+                throw new Error(`Failed to resolve download URL after ${maxRetries} attempts: ${error.message}`)
+              }
+              Logger.warn(`[DownloadClientController] Retry ${retryCount}/${maxRetries} - Failed to follow redirect: ${error.message}`)
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, retryCount), 8000)))
+            }
           }
         }
       }
@@ -760,11 +775,19 @@ class DownloadClientController {
    */
   static async storeTorrentHashInWishlist(wishlistItemId, clientId, magnetOrDownloadUrl, providedHash = null) {
     try {
+      Logger.debug(`[DownloadClientController] Starting storeTorrentHashInWishlist with:`, {
+        wishlistItemId,
+        clientId,
+        magnetOrDownloadUrl,
+        providedHash
+      })
+
       const wishlistItem = await Database.wishlistItemModel.findByPk(wishlistItemId)
       if (!wishlistItem) {
         Logger.error(`[DownloadClientController] Wishlist item not found: ${wishlistItemId}`)
         return
       }
+      Logger.debug(`[DownloadClientController] Found wishlist item:`, wishlistItem)
 
       // Use provided hash if available, otherwise extract from magnet URL
       let hash = providedHash
@@ -774,31 +797,49 @@ class DownloadClientController {
           hash = hashMatch[1].toLowerCase()
         }
       }
+      Logger.debug(`[DownloadClientController] Using hash:`, hash)
 
       // Check if download already exists
       const existingDownload = await Database.pendingDownloadModel.findOne({
         where: {
           wishlistItemId,
-          [Database.Sequelize.Op.or]: [
+          [Op.or]: [
             { url: magnetOrDownloadUrl },
             { hash: hash }
           ]
         }
       })
+      Logger.debug(`[DownloadClientController] Existing download check result:`, existingDownload)
 
       if (!existingDownload) {
-        await Database.pendingDownloadModel.create({
-          wishlistItemId,
-          clientId,
-          url: magnetOrDownloadUrl,
-          hash: hash,
-          addedAt: new Date()
-        })
-        
-        Logger.info(`[DownloadClientController] Added pending download to wishlist item "${wishlistItem.title}"`)
+        Logger.debug(`[DownloadClientController] No existing download found, creating new one`)
+        try {
+          const newDownload = await Database.pendingDownloadModel.create({
+            wishlistItemId,
+            clientId,
+            url: magnetOrDownloadUrl,
+            hash: hash,
+            addedAt: new Date()
+          })
+          Logger.info(`[DownloadClientController] Successfully created pending download:`, newDownload)
+        } catch (createError) {
+          Logger.error(`[DownloadClientController] Failed to create pending download:`, {
+            error: createError.message,
+            stack: createError.stack,
+            details: createError
+          })
+          throw createError
+        }
+      } else {
+        Logger.info(`[DownloadClientController] Download already exists for wishlist item "${wishlistItem.title}"`)
       }
     } catch (error) {
-      Logger.error(`[DownloadClientController] Failed to store torrent hash in wishlist:`, error)
+      Logger.error(`[DownloadClientController] Failed to store torrent hash in wishlist:`, {
+        error: error.message,
+        stack: error.stack,
+        details: error
+      })
+      throw error // Re-throw the error so the caller knows something went wrong
     }
   }
 

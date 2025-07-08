@@ -32,6 +32,9 @@ class Database {
 
     this.supportsUnaccent = false
     this.supportsUnicodeFoldings = false
+
+    // Expose Sequelize operators
+    this.Sequelize = Sequelize
   }
 
   get models() {
