@@ -21,11 +21,17 @@
                 <p v-if="book.publishedDate" class="text-xs text-gray-400">{{ book.publishedDate }}</p>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0">
-                <div v-if="libraries.length > 0" class="relative">
-                  <select @change="handleLibrarySelection(book, $event)" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors">
-                    <option value="">Select Library</option>
-                    <option v-for="library in libraries" :key="library.id" :value="library.id">{{ library.name }}</option>
-                  </select>
+                <div v-if="libraries.length > 0" class="flex items-center space-x-1">
+                  <button
+                    v-for="(library, index) in libraries"
+                    :key="library.id"
+                    @click="addBookFromSearch(book, library.id)"
+                    class="flex items-center space-x-1 px-2 py-1 rounded text-sm transition-colors"
+                    :class="[index % 5 === 0 ? 'bg-purple-500 hover:bg-purple-400' : '', index % 5 === 1 ? 'bg-blue-500 hover:bg-blue-400' : '', index % 5 === 2 ? 'bg-green-500 hover:bg-green-400' : '', index % 5 === 3 ? 'bg-yellow-500 hover:bg-yellow-400' : '', index % 5 === 4 ? 'bg-red-500 hover:bg-red-400' : '']"
+                  >
+                    <ui-library-icon :icon="library.icon" :size="5" />
+                    <span>{{ library.name }}</span>
+                  </button>
                 </div>
                 <div v-else class="px-3 py-1 bg-gray-600 text-gray-300 text-xs rounded-md">
                   <span>No libraries available</span>
@@ -507,8 +513,7 @@ export default {
       const libraryId = event.target.value
       if (libraryId) {
         this.addBookFromSearch(book, libraryId)
-        // Reset the select dropdown
-        event.target.value = ''
+        event.target.value = '' // Reset dropdown
       }
     },
     async addBookFromSearch(book, libraryId) {
