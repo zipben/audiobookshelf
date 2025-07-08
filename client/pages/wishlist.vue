@@ -119,7 +119,7 @@
                           <div class="bg-green-500 h-1 rounded-full transition-all duration-300" :style="{ width: Math.round(download.progress * 100) + '%' }"></div>
                         </div>
                         <div class="flex items-center justify-between text-xs text-gray-400">
-                          <span class="truncate flex-1 mr-1">{{ download.state }}</span>
+                          <span class="truncate flex-1 mr-1">{{ getTorrentStateText(download.state) }}</span>
                           <span v-if="download.dlspeed > 0" class="flex-shrink-0 text-xs">{{ formatBytes(download.dlspeed) }}/s</span>
                         </div>
                         <div v-if="download.totalSize > 0" class="flex items-center justify-between text-xs text-gray-500">
@@ -931,6 +931,23 @@ export default {
 
       console.log('Is torrent in downloads:', isInDownloads)
       return isInDownloads
+    },
+    getTorrentStateText(state) {
+      const stateMap = {
+        error: 'Error occurred',
+        pausedUP: 'Completed and paused',
+        pausedDL: 'Download paused',
+        queuedUP: 'Queued for upload',
+        queuedDL: 'Queued for download',
+        uploading: 'Seeding',
+        stalledUP: 'Seeding stalled',
+        checkingUP: 'Checking completed files',
+        checkingDL: 'Checking files',
+        downloading: 'Downloading',
+        stalledDL: 'Download stalled',
+        stoppedDL: 'Download stopped'
+      }
+      return stateMap[state] || state
     }
   },
   mounted() {
