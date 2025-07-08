@@ -782,7 +782,14 @@ class DownloadClientController {
         providedHash
       })
 
-      const wishlistItem = await Database.wishlistItemModel.findByPk(wishlistItemId)
+      const wishlistItem = await Database.wishlistItemModel.findOne({
+        where: { id: wishlistItemId },
+        include: [{
+          model: Database.pendingDownloadModel,
+          as: 'pendingDownloads'
+        }]
+      })
+
       if (!wishlistItem) {
         Logger.error(`[DownloadClientController] Wishlist item not found: ${wishlistItemId}`)
         return
@@ -1169,7 +1176,11 @@ class DownloadClientController {
     try {
       // Get wishlist item
       const wishlistItem = await Database.wishlistItemModel.findOne({
-        where: { id: wishlistItemId }
+        where: { id: wishlistItemId },
+        include: [{
+          model: Database.pendingDownloadModel,
+          as: 'pendingDownloads'
+        }]
       })
 
       if (!wishlistItem) {

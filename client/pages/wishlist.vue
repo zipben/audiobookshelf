@@ -263,8 +263,9 @@
                   </td>
                   <td class="py-2 px-2 text-right">
                     <div class="flex items-center justify-end space-x-2">
-                      <button v-if="userIsAdminOrUp && (result.magnetUrl || result.downloadUrl)" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid" class="text-purple-400 hover:text-purple-300 transition-colors p-1" title="Add to download client">
+                      <button v-if="userIsAdminOrUp && (result.magnetUrl || result.downloadUrl)" @click="addToDownloadClient(result)" :disabled="downloadingTorrent === result.guid || isTorrentInPendingDownloads(result)" class="text-purple-400 hover:text-purple-300 transition-colors p-1" :title="isTorrentInPendingDownloads(result) ? 'Already in downloads' : 'Add to download client'">
                         <span v-if="downloadingTorrent === result.guid" class="material-symbols text-sm animate-spin">hourglass_empty</span>
+                        <span v-else-if="isTorrentInPendingDownloads(result)" class="material-symbols text-sm animate-spin text-gray-400">sync</span>
                         <span v-else class="material-symbols text-sm">download</span>
                       </button>
                       <button v-if="userIsAdminOrUp && result.magnetUrl" @click="downloadMagnet(result.magnetUrl)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Download magnet link">
@@ -892,6 +893,33 @@ export default {
       } finally {
         this.$delete(this.importingDownloads, download.hash)
       }
+    },
+    // Update method to check if a torrent is already in the download client
+    isTorrentInPendingDownloads(result) {
+      console.log('Checking if torrent is in download client:', {
+        result: {
+          title: result.title,
+          magnetUrl: result.magnetUrl,
+          downloadUrl: result.downloadUrl
+        }
+      })
+
+      // Get all downloads from the download progress data
+      const allDownloads = Object.values(this.downloadProgress).flat()
+      console.log('All active downloads:', allDownloads)
+
+      // Check if any download matches this torrent's name
+      const isInDownloads = allDownloads.some((download) => {
+        console.log('Comparing download:', {
+          downloadName: download.name,
+          torrentTitle: result.title
+        })
+        // Compare the torrent name/title with existing downloads
+        return download.name.toLowerCase().includes(result.title.toLowerCase()) || result.title.toLowerCase().includes(download.name.toLowerCase())
+      })
+
+      console.log('Is torrent in downloads:', isInDownloads)
+      return isInDownloads
     }
   },
   mounted() {
