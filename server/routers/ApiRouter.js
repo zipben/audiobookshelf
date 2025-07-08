@@ -357,6 +357,7 @@ class ApiRouter {
     this.router.post('/download-clients/:id/add-torrent', DownloadClientController.addTorrent.bind(DownloadClientController))
     this.router.post('/download-clients/import/:wishlistItemId', DownloadClientController.manualImport.bind(DownloadClientController))
     this.router.delete('/download-clients/:id/torrents/:hash', DownloadClientController.cancelDownload.bind(DownloadClientController))
+    this.router.post('/download-clients/:id/torrents/:hash/force-start', DownloadClientController.forceStartDownload.bind(DownloadClientController))
     this.router.get('/download-clients/progress', DownloadClientController.getDownloadProgress.bind(DownloadClientController))
     //
     // Wishlist Routes

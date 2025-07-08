@@ -105,6 +105,10 @@
                               <span v-if="importingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
                               <span v-else class="material-symbols text-xs">download_done</span>
                             </button>
+                            <button v-else-if="download.state === 'queuedDL'" @click="forceStartDownload(item, download)" :disabled="forceStartingDownloads[download.hash]" class="text-yellow-400 hover:text-yellow-300 transition-colors" title="Force start download">
+                              <span v-if="forceStartingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
+                              <span v-else class="material-symbols text-xs">fast_forward</span>
+                            </button>
                             <button v-else @click="cancelSpecificDownload(item, download)" :disabled="cancellingDownloads[download.hash]" class="text-red-400 hover:text-red-300 transition-colors" title="Cancel this download">
                               <span v-if="cancellingDownloads[download.hash]" class="material-symbols text-xs animate-spin">hourglass_empty</span>
                               <span v-else class="material-symbols text-xs">cancel</span>
@@ -368,6 +372,7 @@ export default {
       progressUpdateInterval: null,
       cancellingDownloads: {},
       importingDownloads: {},
+      forceStartingDownloads: {},
       libraries: []
     }
   },
@@ -944,6 +949,29 @@ export default {
         stoppedDL: 'Download stopped'
       }
       return stateMap[state] || state
+    },
+    async forceStartDownload(item, download) {
+      if (!this.userIsAdminOrUp) {
+        this.$toast.error('Only administrators can force start downloads')
+        return
+      }
+
+      this.$set(this.forceStartingDownloads, download.hash, true)
+
+      try {
+        await this.$axios.$post(`/api/download-clients/${download.clientId}/torrents/${download.hash}/force-start?wishlistItemId=${item.id}`)
+
+        this.$toast.success(`Force started download: "${download.name}"`)
+
+        // Refresh progress data to update the UI
+        this.fetchDownloadProgress()
+      } catch (error) {
+        console.error('Failed to force start download:', error)
+        const errorMessage = error.response?.data?.message || 'Failed to force start download'
+        this.$toast.error(errorMessage)
+      } finally {
+        this.$delete(this.forceStartingDownloads, download.hash)
+      }
     }
   },
   mounted() {

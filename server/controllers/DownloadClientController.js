@@ -1309,6 +1309,119 @@ class DownloadClientController {
       res.status(500).json({ error: 'Failed to import download' })
     }
   }
+
+  /**
+   * POST: /api/download-clients/:id/torrents/:hash/force-start
+   * Force start a queued torrent
+   *
+   * @param {DownloadClientControllerRequest} req
+   * @param {Response} res
+   */
+  static async forceStartDownload(req, res) {
+    if (!req.user.isAdminOrUp) {
+      Logger.error(`[DownloadClientController] Non-admin user "${req.user.username}" attempted to force start download`)
+      return res.sendStatus(403)
+    }
+
+    const { id, hash } = req.params
+
+    if (!hash) {
+      return res.status(400).json({ error: 'Hash is required' })
+    }
+
+    const clients = Database.serverSettings.downloadClients || []
+    const client = clients.find(client => client.id === id)
+
+    if (!client) {
+      return res.status(404).json({ error: 'Download client not found' })
+    }
+
+    if (!client.enabled) {
+      return res.status(400).json({ error: 'Download client is disabled' })
+    }
+
+    try {
+      const result = await DownloadClientController.forceStartTorrentInClient(client, hash)
+      Logger.info(`[DownloadClientController] Successfully force started download for hash "${hash}" in "${client.name}"`)
+      res.json({ success: true, message: 'Download force started successfully' })
+    } catch (error) {
+      Logger.error(`[DownloadClientController] Failed to force start download in "${client.name}":`, error.message)
+      res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      })
+    }
+  }
+
+  /**
+   * Force start torrent in download client
+   * 
+   * @param {Object} client 
+   * @param {string} hash 
+   * @returns {Promise<Object>}
+   */
+  static async forceStartTorrentInClient(client, hash) {
+    switch (client.type) {
+      case 'qbittorrent':
+        return await DownloadClientController.forceStartTorrentQBittorrent(client, hash)
+      case 'transmission':
+        throw new Error('Transmission force start not yet implemented')
+      case 'deluge':
+        throw new Error('Deluge force start not yet implemented')
+      case 'rtorrent':
+        throw new Error('rTorrent force start not yet implemented')
+      default:
+        throw new Error(`Unsupported client type: ${client.type}`)
+    }
+  }
+
+  /**
+   * Force start torrent in qBittorrent
+   * 
+   * @param {Object} client 
+   * @param {string} hash 
+   * @returns {Promise<Object>}
+   */
+  static async forceStartTorrentQBittorrent(client, hash) {
+    const baseUrl = `http://${client.host}:${client.port}`
+    
+    try {
+      // Login first
+      const loginResponse = await axios.post(`${baseUrl}/api/v2/auth/login`, 
+        `username=${encodeURIComponent(client.username)}&password=${encodeURIComponent(client.password)}`,
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 10000
+        }
+      )
+
+      if (loginResponse.data !== 'Ok.') {
+        throw new Error('Authentication failed')
+      }
+
+      const cookies = loginResponse.headers['set-cookie']
+      const cookie = cookies ? cookies[0].split(';')[0] : ''
+
+      // Force start the torrent
+      const forceStartResponse = await axios.post(`${baseUrl}/api/v2/torrents/setForceStart`, 
+        `hashes=${hash}&value=true`,
+        {
+          headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Cookie: cookie 
+          },
+          timeout: 10000
+        }
+      )
+
+      return { success: true, message: 'Torrent force started in qBittorrent' }
+    } catch (error) {
+      if (error.response) {
+        throw new Error(`HTTP ${error.response.status}: ${error.response.statusText}`)
+      }
+      throw new Error(error.message)
+    }
+  }
 }
 
 module.exports = DownloadClientController 
