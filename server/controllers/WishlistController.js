@@ -19,15 +19,21 @@ class WishlistController {
    */
   static async getWishlistItems(req, res) {
     try {
+      // If user is admin or up, get all wishlist items
+      const where = req.user.isAdminOrUp ? {} : { userId: req.user.id }
+
       const wishlistItems = await Database.wishlistItemModel.findAll({
-        where: {
-          userId: req.user.id
-        },
+        where,
         include: [
           {
             model: Database.libraryModel,
             as: 'library',
             attributes: ['id', 'name', 'mediaType', 'icon']
+          },
+          {
+            model: Database.userModel,
+            as: 'user',
+            attributes: ['id', 'username', 'displayName']
           }
         ],
         order: [['createdAt', 'DESC']]
