@@ -14,7 +14,7 @@
           <!-- Search Results Dropdown -->
           <div v-if="searchResults.length > 0" class="absolute z-50 w-full mt-1 bg-bg border border-gray-500 rounded-lg shadow-lg max-h-96 overflow-y-auto">
             <div v-for="book in searchResults" :key="book.id" class="p-3 hover:bg-primary/20 border-b border-gray-600 last:border-b-0 flex items-center space-x-3">
-              <img :src="book.thumbnail" :alt="book.title" class="w-12 h-16 object-cover rounded flex-shrink-0" @error="handleImageError" />
+              <img :src="book.coverPath" :alt="book.title" class="w-12 h-16 object-cover rounded flex-shrink-0" @error="handleImageError" />
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold text-white truncate">{{ book.title }}</h3>
                 <p class="text-sm text-gray-300 truncate">{{ book.authors }}</p>
@@ -59,7 +59,7 @@
             <tbody>
               <tr v-for="item in wishlistItems" :key="item.id" class="border-b border-gray-600/50 hover:bg-primary/10 transition-colors">
                 <td class="px-2 py-3 w-12">
-                  <img v-if="item.thumbnail" :src="item.thumbnail" :alt="item.title" class="w-8 h-10 object-cover rounded shadow-sm" @error="handleImageError" />
+                  <img v-if="item.coverPath" :src="item.coverPath" :alt="item.title" class="w-8 h-10 object-cover rounded shadow-sm" @error="handleImageError" />
                   <div v-else class="w-8 h-10 bg-gray-600 rounded flex items-center justify-center">
                     <span class="material-symbols text-gray-400 text-sm">book</span>
                   </div>
@@ -488,7 +488,7 @@ export default {
             title: item.volumeInfo.title || 'Unknown Title',
             authors: item.volumeInfo.authors ? item.volumeInfo.authors.join(', ') : 'Unknown Author',
             publishedDate: item.volumeInfo.publishedDate || null,
-            thumbnail: item.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || item.volumeInfo.imageLinks?.smallThumbnail?.replace('http:', 'https:') || '/default-book-cover.jpg',
+            coverPath: item.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || item.volumeInfo.imageLinks?.smallThumbnail?.replace('http:', 'https:') || '/default-book-cover.jpg',
             description: item.volumeInfo.description || '',
             isbn: item.volumeInfo.industryIdentifiers?.[0]?.identifier || null,
             pageCount: item.volumeInfo.pageCount || null,
@@ -516,7 +516,7 @@ export default {
           title: book.title,
           author: book.authors,
           notes: '',
-          thumbnail: book.thumbnail,
+          coverPath: book.coverPath,
           publishedDate: book.publishedDate,
           description: book.description,
           isbn: book.isbn,

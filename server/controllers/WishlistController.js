@@ -49,7 +49,7 @@ class WishlistController {
    */
   static async addWishlistItem(req, res) {
     try {
-      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, libraries } = req.body
+      const { title, author, notes, coverPath, publishedDate, description, isbn, pageCount, categories, libraries } = req.body
 
       if (!title) {
         return res.status(400).json({ error: 'Title is required' })
@@ -97,7 +97,7 @@ class WishlistController {
           title,
           author,
           notes,
-          thumbnail,
+          coverPath,
           publishedDate,
           description,
           isbn,
@@ -163,7 +163,7 @@ class WishlistController {
   static async updateWishlistItem(req, res) {
     try {
       const { id } = req.params
-      const { title, author, notes, thumbnail, publishedDate, description, isbn, pageCount, categories, libraryId } = req.body
+      const { title, author, notes, coverPath, publishedDate, description, isbn, pageCount, categories, libraryId } = req.body
 
       const wishlistItem = await Database.wishlistItemModel.findOne({
         where: {
@@ -197,7 +197,7 @@ class WishlistController {
         title: title || wishlistItem.title,
         author: author !== undefined ? author : wishlistItem.author,
         notes: notes !== undefined ? notes : wishlistItem.notes,
-        thumbnail: thumbnail !== undefined ? thumbnail : wishlistItem.thumbnail,
+        coverPath: coverPath !== undefined ? coverPath : wishlistItem.coverPath,
         publishedDate: publishedDate !== undefined ? publishedDate : wishlistItem.publishedDate,
         description: description !== undefined ? description : wishlistItem.description,
         isbn: isbn !== undefined ? isbn : wishlistItem.isbn,
