@@ -251,26 +251,20 @@ class WishlistController {
     try {
       const { id } = req.params
 
+      // If user is admin, find item without userId filter
+      const where = req.user.isAdminOrUp ? { id } : { id, userId: req.user.id }
+
       const wishlistItem = await Database.wishlistItemModel.findOne({
-        where: {
-          id: id,
-          userId: req.user.id
-        }
+        where
       })
 
       if (!wishlistItem) {
         return res.status(404).json({ error: 'Wishlist item not found' })
       }
 
-      // Check permissions - user can delete if they own it or are admin
-      const userIsAdminOrUp = req.user.type === 'admin' || req.user.type === 'root'
-      if (wishlistItem.userId !== req.user.id && !userIsAdminOrUp) {
-        return res.status(403).json({ error: 'Permission denied' })
-      }
-
       await wishlistItem.destroy()
 
-      Logger.info(`[WishlistController] Deleted wishlist item "${wishlistItem.title}" for user ${req.user.id}`)
+      Logger.info(`[WishlistController] Deleted wishlist item "${wishlistItem.title}" ${req.user.isAdminOrUp ? `(owned by user ${wishlistItem.userId})` : ''} by user ${req.user.id}`)
       res.json({ message: 'Wishlist item deleted successfully' })
 
     } catch (error) {
