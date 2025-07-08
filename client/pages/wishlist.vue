@@ -57,9 +57,8 @@
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-28">Author</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-12">Year</th>
                 <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-16">Library</th>
-                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-24">Notes</th>
                 <th v-if="userIsAdminOrUp" class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-24">Added By</th>
-                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-32">Progress</th>
+                <th class="text-left px-2 py-3 text-sm font-semibold text-gray-200 w-56">Progress</th>
                 <th class="text-center px-2 py-3 text-sm font-semibold text-gray-200 w-20">Actions</th>
               </tr>
             </thead>
@@ -89,15 +88,12 @@
                     <span v-else class="text-sm text-gray-400"> - </span>
                   </div>
                 </td>
-                <td class="px-2 py-3 w-24">
-                  <p class="text-sm text-gray-400 truncate" :title="item.notes || '-'">{{ item.notes || '-' }}</p>
-                </td>
                 <td v-if="userIsAdminOrUp" class="px-2 py-3 w-24">
                   <p class="text-sm text-gray-400 truncate" :title="item.user?.displayName || item.user?.username || '-'">
                     {{ item.user?.displayName || item.user?.username || '-' }}
                   </p>
                 </td>
-                <td class="px-2 py-3 w-32">
+                <td class="px-2 py-3 w-56">
                   <div class="w-full">
                     <div v-if="getDownloadProgress(item.id) && getDownloadProgress(item.id).length > 0" class="space-y-1">
                       <div v-for="download in getDownloadProgress(item.id)" :key="download.hash" class="space-y-1">
