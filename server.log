@@ -1,0 +1,86 @@
+
+> audiobookshelf@2.25.8 dev
+> nodemon --watch server index.js -- --dev
+
+[33m[nodemon] 2.0.22[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): server/**/*[39m
+[33m[nodemon] watching extensions: js,mjs,json[39m
+[32m[nodemon] starting `node index.js --dev`[39m
+Running in development mode.
+Options: CONFIG_PATH=/Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/config, METADATA_PATH=/Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/metadata, PORT=3333, HOST=undefined, SOURCE=local, ROUTER_BASE_PATH=/audiobookshelf
+[2025-08-28 17:25:03.498] INFO: === Starting Server ===
+[2025-08-28 17:25:03.499] INFO: [Server] Init v2.25.8
+[2025-08-28 17:25:03.499] INFO: [Server] Node.js Version: v20.11.0
+[2025-08-28 17:25:03.499] INFO: [Server] Platform: darwin
+[2025-08-28 17:25:03.499] INFO: [Server] Arch: arm64
+[2025-08-28 17:25:03.649] INFO: [BinaryManager] Found valid executable ffmpeg at /Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/ffmpeg
+[2025-08-28 17:25:03.649] INFO: [BinaryManager] Updating process.env.FFMPEG_PATH
+[2025-08-28 17:25:03.728] INFO: [BinaryManager] Found valid executable ffprobe at /Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/ffprobe
+[2025-08-28 17:25:03.728] INFO: [BinaryManager] Updating process.env.FFPROBE_PATH
+[2025-08-28 17:25:03.729] INFO: [BinaryManager] Found valid library libnusqlite3 at /Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/libnusqlite3.dylib
+[2025-08-28 17:25:03.729] INFO: [BinaryManager] Updating process.env.NUSQLITE3_PATH
+[2025-08-28 17:25:03.729] INFO: [Database] Initializing db at "/Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/config/absdatabase.sqlite"
+[2025-08-28 17:25:03.744] INFO: [Database] Loading extension /Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/libnusqlite3.dylib
+[2025-08-28 17:25:03.744] INFO: [Database] Successfully loaded extension /Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/libnusqlite3.dylib
+[2025-08-28 17:25:03.744] INFO: [Database] Db supports unaccent and unicode foldings
+[2025-08-28 17:25:03.744] INFO: [Database] Db connection was successful
+[2025-08-28 17:25:03.746] DEBUG: [MigrationManager] Database version: 2.25.8, Max version: 2.25.8, Server version: 2.25.8
+[2025-08-28 17:25:03.747] INFO: [MigrationManager] Database is already up to date.
+[2025-08-28 17:25:03.792] INFO: [Database] Db initialized with models: user, library, libraryFolder, book, podcast, podcastEpisode, libraryItem, mediaProgress, series, bookSeries, author, bookAuthor, collection, collectionBook, playlist, playlistMediaItem, device, playbackSession, feed, feedEpisode, setting, customMetadataProvider, mediaItemShare, comment, wishlistItem, pendingDownload
+[2025-08-28 17:25:03.802] INFO: [Database] running ANALYZE
+[2025-08-28 17:25:03.804] INFO: [Database] ANALYZE completed
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-07.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-08.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-09.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-28.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-29.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-07-30.txt
+[2025-08-28 17:25:03.804] DEBUG: Daily Log file found 2025-08-28.txt
+[2025-08-28 17:25:03.804] INFO: [LogManager] Init current daily log filename: 2025-08-28.txt
+[2025-08-28 17:25:03.805] DEBUG: [LogManager] Daily log file already exists - set in Logger
+[2025-08-28 17:25:03.805] DEBUG: [DailyLog] 2025-08-28: Loaded 151 Logs
+[2025-08-28 17:25:03.807] INFO: [BackupManager] 0 Backups Found
+[2025-08-28 17:25:03.807] INFO: [BackupManager] Auto Backups are disabled
+[2025-08-28 17:25:03.812] INFO: [Watcher] Initializing watcher for "Lib".
+[2025-08-28 17:25:03.812] DEBUG: [Watcher] Init watcher for library folder path "/Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/audiobooks"
+[2025-08-28 17:25:03.812] INFO: [Watcher] Initializing watcher for "lib2".
+[2025-08-28 17:25:03.812] DEBUG: [Watcher] Init watcher for library folder path "/Users/benjamindonaldson/Documents/Projects/Code/Websites/audiobookshelf/audiobookshelf/podcasts"
+[2025-08-28 17:25:03.815] INFO: Listening on port :3333
+[2025-08-28 17:25:03.817] INFO: [Watcher] "Lib" Ready
+[2025-08-28 17:25:03.817] INFO: [Watcher] "lib2" Ready
+[2025-08-28 17:25:36.815] DEBUG: [ApiCacheManager] count: 0 size: 0
+[2025-08-28 17:25:36.823] DEBUG: Loaded filterdata in 0.01s
+[2025-08-28 17:25:36.824] DEBUG: [ApiCacheManager] Cache miss: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02?include=filterdata"}
+[2025-08-28 17:25:36.883] DEBUG: [ApiCacheManager] count: 1 size: 1694
+[2025-08-28 17:25:36.884] DEBUG: [ApiCacheManager] count: 1 size: 1694
+[2025-08-28 17:25:36.894] DEBUG: [ApiCacheManager] Cache miss: {"user":"root","url":"/libraries"}
+[2025-08-28 17:25:36.896] DEBUG: Loaded 0 of 0 items for "Continue Listening/Reading" in 0.01s
+[2025-08-28 17:25:36.899] DEBUG: Loaded 0 of 0 items for "Continue Series" in 0.00s
+[2025-08-28 17:25:36.906] INFO: [SocketAuthority] Socket Connected to /audiobookshelf/socket.io si1H7blM8J1GNRDRAAAB
+[2025-08-28 17:25:36.908] DEBUG: Loaded 4 of 4 items for "Recently Added" in 0.01s
+[2025-08-28 17:25:36.910] DEBUG: Loaded 0 of 0 series for "Recent Series" in 0.00s
+[2025-08-28 17:25:36.915] DEBUG: [SocketAuthority] User Online root
+[2025-08-28 17:25:36.923] DEBUG: Loaded 4 of 4 items for "Discover" in 0.01s
+[2025-08-28 17:25:36.926] DEBUG: Loaded 0 of 0 items for "Listen/Read Again" in 0.00s
+[2025-08-28 17:25:36.931] DEBUG: Loaded 2 of 2 authors for "Newest Authors" in 0.01s
+[2025-08-28 17:25:36.931] DEBUG: Loaded 3 personalized shelves in 0.04s
+[2025-08-28 17:25:36.931] DEBUG: [ApiCacheManager] Cache miss: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02/personalized?include=rssfeed,numEpisodesIncomplete,share"}
+[2025-08-28 17:25:36.931] DEBUG: [ApiCacheManager] Caching with 1800000 ms TTL
+[2025-08-28 17:25:38.919] DEBUG: [ApiCacheManager] count: 3 size: 16892
+[2025-08-28 17:25:38.919] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02?include=filterdata"}
+[2025-08-28 17:25:38.979] DEBUG: [ApiCacheManager] count: 3 size: 16892
+[2025-08-28 17:25:38.990] DEBUG: Loaded 3 of 3 items for libary page in 0.01s
+[2025-08-28 17:25:38.991] DEBUG: [ApiCacheManager] Cache miss: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02/items?filter=issues&sort=media.metadata.title&desc=0&limit=42&page=0&minified=1&include=rssfeed,numEpisodesIncomplete,share"}
+[2025-08-28 17:25:41.423] DEBUG: [ApiCacheManager] count: 4 size: 21648
+[2025-08-28 17:25:41.424] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02?include=filterdata"}
+[2025-08-28 17:25:41.463] DEBUG: [ApiCacheManager] count: 4 size: 21648
+[2025-08-28 17:25:41.463] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02/personalized?include=rssfeed,numEpisodesIncomplete,share"}
+[2025-08-28 17:25:45.705] DEBUG: [ApiCacheManager] count: 4 size: 21648
+[2025-08-28 17:25:45.706] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries"}
+[2025-08-28 17:25:45.740] ERROR: [DownloadClientController] Failed to get torrents from "q": getaddrinfo ENOTFOUND host.docker.internal
+[2025-08-28 17:25:45.740] DEBUG: [DownloadClientController] Final progress response: { progressByWishlistItem: {} }
+[2025-08-28 17:25:50.687] DEBUG: [ApiCacheManager] count: 4 size: 21648
+[2025-08-28 17:25:50.687] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02?include=filterdata"}
+[2025-08-28 17:25:50.732] DEBUG: [ApiCacheManager] count: 4 size: 21648
+[2025-08-28 17:25:50.733] DEBUG: [ApiCacheManager] Cache hit: {"user":"root","url":"/libraries/af4c212d-e4d3-486d-90e6-c2e51c4cbf02/personalized?include=rssfeed,numEpisodesIncomplete,share"}

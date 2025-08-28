@@ -1,0 +1,27 @@
+
+> audiobookshelf-client@2.24.0 dev
+> nuxt
+
+ℹ [HPM] Proxy created: /audiobookshelf/api/  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/public/  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/hls/  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/auth/  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/feed/  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/status  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/login  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/logout  -> http://localhost:3333
+ℹ [HPM] Proxy created: /audiobookshelf/init  -> http://localhost:3333
+ℹ Listening on: http://192.168.2.66:3000/audiobookshelf/
+ℹ Preparing project for development
+ℹ Initial build may take a while
+ℹ Discovered Components: .nuxt/components/readme.md
+✔ Builder initialized
+✔ Nuxt files generated
+
+ WARN  Please use build.postcss in your nuxt.config.js instead of an external config file. Support for such files will be removed in Nuxt 3 as they remove all defaults set by Nuxt and can cause severe problems with features like alias resolving inside your CSS.
+
+[webpackbar] ℹ Compiling Client
+[webpackbar] ✔ Client: Compiled successfully in 6.04s
+ℹ Waiting for file changes
+ℹ Memory usage: 544 MB (RSS: 1.1 GB)
+ℹ Listening on: http://192.168.2.66:3000/audiobookshelf/
