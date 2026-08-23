@@ -3,7 +3,7 @@
     <app-settings-content :header-text="$strings.HeaderRSSFeeds">
       <template #header-items>
         <ui-tooltip :text="$strings.LabelClickForMoreInfo" class="inline-flex ml-2">
-          <a href="https://www.audiobookshelf.org/guides/rss_feeds" target="_blank" class="inline-flex">
+          <a href="https://audiobookshelf.org/docs/documentation/libraries/common-content/public-shares#rss-feed" target="_blank" class="inline-flex">
             <span class="material-symbols text-xl w-5 text-gray-200">help_outline</span>
           </a>
         </ui-tooltip>
@@ -78,10 +78,10 @@ export default {
   },
   computed: {
     dateFormat() {
-      return this.$store.state.serverSettings.dateFormat
+      return this.$store.getters['getServerSetting']('dateFormat')
     },
     timeFormat() {
-      return this.$store.state.serverSettings.timeFormat
+      return this.$store.getters['getServerSetting']('timeFormat')
     }
   },
   methods: {

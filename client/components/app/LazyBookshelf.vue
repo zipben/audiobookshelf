@@ -22,7 +22,7 @@
       <div v-if="entityName === 'collections' || entityName === 'playlists'" class="flex justify-center mt-4">
         {{ emptyMessageHelp }}
         <ui-tooltip :text="$strings.LabelClickForMoreInfo" class="inline-flex ml-2">
-          <a href="https://www.audiobookshelf.org/guides/collections" target="_blank" class="inline-flex">
+          <a href="https://audiobookshelf.org/docs/documentation/libraries/common-content/playlists" target="_blank" class="inline-flex">
             <span class="material-symbols text-xl w-5 text-gray-200">help_outline</span>
           </a>
         </ui-tooltip>
@@ -232,11 +232,11 @@ export default {
     clearFilter() {
       this.$store.dispatch('user/updateUserSettings', { filterBy: 'all' })
     },
-    editEntity(entity) {
+    editEntity(entity, tab = 'details') {
       if (this.entityName === 'items' || this.entityName === 'series-books') {
         const bookIds = this.entities.map((e) => e.id)
         this.$store.commit('setBookshelfBookIds', bookIds)
-        this.$store.commit('showEditModal', entity)
+        this.$store.commit('showEditModalOnTab', { libraryItem: entity, tab: tab || 'details' })
       } else if (this.entityName === 'collections') {
         this.$store.commit('globals/setEditCollection', entity)
       } else if (this.entityName === 'playlists') {
@@ -778,10 +778,6 @@ export default {
     windowResize() {
       this.executeRebuild()
     },
-    socketInit() {
-      // Server settings are set on socket init
-      this.executeRebuild()
-    },
     initListeners() {
       window.addEventListener('resize', this.windowResize)
 
@@ -794,7 +790,6 @@ export default {
       })
 
       this.$eventBus.$on('bookshelf_clear_selection', this.clearSelectedEntities)
-      this.$eventBus.$on('socket_init', this.socketInit)
       this.$eventBus.$on('user-settings', this.settingsUpdated)
 
       if (this.$root.socket) {
@@ -826,7 +821,6 @@ export default {
       }
 
       this.$eventBus.$off('bookshelf_clear_selection', this.clearSelectedEntities)
-      this.$eventBus.$off('socket_init', this.socketInit)
       this.$eventBus.$off('user-settings', this.settingsUpdated)
 
       if (this.$root.socket) {

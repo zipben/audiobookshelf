@@ -99,8 +99,8 @@ class UserController {
     }
 
     const userId = uuidv4()
-    const pash = await this.auth.hashPass(req.body.password)
-    const token = await this.auth.generateAccessToken({ id: userId, username: req.body.username })
+    const pash = await this.auth.localAuthStrategy.hashPassword(req.body.password)
+    const token = this.auth.generateAccessToken({ id: userId, username: req.body.username })
     const userType = req.body.type || 'user'
 
     // librariesAccessible and itemTagsSelected can be on req.body or req.body.permissions
@@ -220,6 +220,7 @@ class UserController {
 
     let hasUpdates = false
     let shouldUpdateToken = false
+    let shouldInvalidateJwtSessions = false
     // When changing username create a new API token
     if (updatePayload.username && updatePayload.username !== user.username) {
       const usernameExists = await Database.userModel.checkUserExistsWithUsername(updatePayload.username)
@@ -228,12 +229,14 @@ class UserController {
       }
       user.username = updatePayload.username
       shouldUpdateToken = true
+      shouldInvalidateJwtSessions = true
       hasUpdates = true
     }
 
     // Updating password
     if (updatePayload.password) {
-      user.pash = await this.auth.hashPass(updatePayload.password)
+      user.pash = await this.auth.localAuthStrategy.hashPassword(updatePayload.password)
+      shouldInvalidateJwtSessions = true
       hasUpdates = true
     }
 
@@ -312,9 +315,21 @@ class UserController {
 
     if (hasUpdates) {
       if (shouldUpdateToken) {
-        user.token = await this.auth.generateAccessToken(user)
+        user.token = this.auth.generateAccessToken(user)
         Logger.info(`[UserController] User ${user.username} has generated a new api token`)
       }
+
+      // Handle JWT session invalidation for username/password changes
+      if (shouldInvalidateJwtSessions) {
+        const newTokens = await this.auth.invalidateJwtSessionsForUser(user, req, res)
+        if (newTokens) {
+          // Note: for admin users changing their own password they should use MeController.updatePassword instead. This endpoint does not return tokens
+          Logger.info(`[UserController] Invalidated JWT sessions for user ${user.username} and rotated tokens for current session`)
+        } else {
+          Logger.info(`[UserController] Invalidated JWT sessions for user ${user.username}`)
+        }
+      }
+
       await user.save()
       SocketAuthority.clientEmitter(req.user.id, 'user_updated', user.toOldJSONForBrowser())
     }
@@ -333,15 +348,16 @@ class UserController {
    * @param {Response} res
    */
   async delete(req, res) {
-    if (req.params.id === 'root') {
-      Logger.error('[UserController] Attempt to delete root user. Root user cannot be deleted')
-      return res.sendStatus(400)
-    }
+    const user = req.reqUser
+
     if (req.user.id === req.params.id) {
       Logger.error(`[UserController] User ${req.user.username} is attempting to delete self`)
       return res.sendStatus(400)
     }
-    const user = req.reqUser
+    if (user.isRoot) {
+      Logger.error(`[UserController] Admin user "${req.user.username}" attempted to delete root user`)
+      return res.sendStatus(403)
+    }
 
     // Todo: check if user is logged in and cancel streams
 
@@ -409,7 +425,16 @@ class UserController {
     const page = toNumber(req.query.page, 0)
 
     const start = page * itemsPerPage
-    const sessions = listeningSessions.slice(start, start + itemsPerPage)
+    // Map user to sessions to match the format of the sessions endpoint
+    const sessions = listeningSessions.slice(start, start + itemsPerPage).map((session) => {
+      return {
+        ...session,
+        user: {
+          id: req.reqUser.id,
+          username: req.reqUser.username
+        }
+      }
+    })
 
     const payload = {
       total: listeningSessions.length,

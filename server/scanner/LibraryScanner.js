@@ -236,8 +236,7 @@ class LibraryScanner {
       SocketAuthority.libraryItemsEmitter('items_updated', libraryItemsUpdated)
     }
 
-    // Authors and series that were removed from books should be removed if they are now empty
-    await LibraryItemScanner.checkAuthorsAndSeriesRemovedFromBooks(libraryScan.libraryId, libraryScan)
+    if (this.shouldCancelScan(libraryScan)) return true
 
     // Update missing library items
     if (libraryItemIdsMissing.length) {
@@ -282,6 +281,9 @@ class LibraryScanner {
         SocketAuthority.libraryItemsEmitter('items_added', newLibraryItems)
       }
     }
+
+    // Author book count updates and empty authors/series cleanup after all items are processed
+    await LibraryItemScanner.finalizeAuthorsAndSeriesFromScan(libraryScan.libraryId, libraryScan)
 
     libraryScan.addLog(LogLevel.INFO, `Scan completed. ${libraryScan.resultStats}`)
     return false
@@ -607,6 +609,11 @@ class LibraryScanner {
         continue
       } else if (library.settings.audiobooksOnly && !hasAudioFiles(fileUpdateGroup, itemDir)) {
         Logger.debug(`[LibraryScanner] Folder update for relative path "${itemDir}" has no audio files`)
+        continue
+      } else if (!(await fs.pathExists(fullPath))) {
+        Logger.info(`[LibraryScanner] File update group "${itemDir}" does not exist - ignoring`)
+
+        itemGroupingResults[itemDir] = ScanResult.NOTHING
         continue
       }
 

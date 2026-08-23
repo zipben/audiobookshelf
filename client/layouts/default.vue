@@ -39,6 +39,7 @@ export default {
     return {
       socket: null,
       isSocketConnected: false,
+      isSocketAuthenticated: false,
       isFirstSocketConnection: true,
       socketConnectionToastId: null,
       currentLang: null,
@@ -87,9 +88,28 @@ export default {
         document.body.classList.add('app-bar')
       }
     },
+    tokenRefreshed(newAccessToken) {
+      if (this.isSocketConnected && !this.isSocketAuthenticated) {
+        console.log('[SOCKET] Re-authenticating socket after token refresh')
+        this.socket.emit('auth', newAccessToken)
+      }
+    },
     updateSocketConnectionToast(content, type, timeout) {
       if (this.socketConnectionToastId !== null && this.socketConnectionToastId !== undefined) {
-        this.$toast.update(this.socketConnectionToastId, { content: content, options: { timeout: timeout, type: type, closeButton: false, position: 'bottom-center', onClose: () => null, closeOnClick: timeout !== null } }, false)
+        const toastUpdateOptions = {
+          content: content,
+          options: {
+            timeout: timeout,
+            type: type,
+            closeButton: false,
+            position: 'bottom-center',
+            onClose: () => {
+              this.socketConnectionToastId = null
+            },
+            closeOnClick: timeout !== null
+          }
+        }
+        this.$toast.update(this.socketConnectionToastId, toastUpdateOptions, false)
       } else {
         this.socketConnectionToastId = this.$toast[type](content, { position: 'bottom-center', timeout: timeout, closeButton: false, closeOnClick: timeout !== null })
       }
@@ -115,7 +135,7 @@ export default {
       this.updateSocketConnectionToast(this.$strings.ToastSocketDisconnected, 'error', null)
     },
     reconnect() {
-      console.error('[SOCKET] reconnected')
+      console.log('[SOCKET] reconnected')
     },
     reconnectAttempt(val) {
       console.log(`[SOCKET] reconnect attempt ${val}`)
@@ -126,6 +146,10 @@ export default {
     reconnectFailed() {
       console.error('[SOCKET] reconnect failed')
     },
+    authFailed(payload) {
+      console.error('[SOCKET] auth failed', payload.message)
+      this.isSocketAuthenticated = false
+    },
     init(payload) {
       console.log('Init Payload', payload)
 
@@ -133,7 +157,7 @@ export default {
         this.$store.commit('users/setUsersOnline', payload.usersOnline)
       }
 
-      this.$eventBus.$emit('socket_init')
+      this.isSocketAuthenticated = true
     },
     streamOpen(stream) {
       if (this.$refs.mediaPlayerContainer) this.$refs.mediaPlayerContainer.streamOpen(stream)
@@ -181,7 +205,7 @@ export default {
           }
         } else {
           console.error('User has no more accessible libraries')
-          this.$store.commit('libraries/setCurrentLibrary', null)
+          this.$store.commit('libraries/setCurrentLibrary', { id: null })
         }
       }
     },
@@ -353,13 +377,24 @@ export default {
     },
     customMetadataProviderAdded(provider) {
       if (!provider?.id) return
-      this.$store.commit('scanners/addCustomMetadataProvider', provider)
+      // Refresh providers cache
+      this.$store.dispatch('scanners/refreshProviders')
     },
     customMetadataProviderRemoved(provider) {
       if (!provider?.id) return
-      this.$store.commit('scanners/removeCustomMetadataProvider', provider)
+      // Refresh providers cache
+      this.$store.dispatch('scanners/refreshProviders')
     },
     initializeSocket() {
+      if (this.$root.socket) {
+        // Can happen in dev due to hot reload
+        console.warn('Socket already initialized')
+        this.socket = this.$root.socket
+        this.isSocketConnected = this.$root.socket?.connected
+        this.isFirstSocketConnection = false
+        this.socketConnectionToastId = null
+        return
+      }
       this.socket = this.$nuxtSocket({
         name: process.env.NODE_ENV === 'development' ? 'dev' : 'prod',
         persist: 'main',
@@ -370,6 +405,7 @@ export default {
         path: `${this.$config.routerBasePath}/socket.io`
       })
       this.$root.socket = this.socket
+      this.isSocketAuthenticated = false
       console.log('Socket initialized')
 
       // Pre-defined socket events
@@ -383,6 +419,7 @@ export default {
 
       // Event received after authorizing socket
       this.socket.on('init', this.init)
+      this.socket.on('auth_failed', this.authFailed)
 
       // Stream Listeners
       this.socket.on('stream_open', this.streamOpen)
@@ -577,6 +614,7 @@ export default {
     this.updateBodyClass()
     this.resize()
     this.$eventBus.$on('change-lang', this.changeLanguage)
+    this.$eventBus.$on('token_refreshed', this.tokenRefreshed)
     window.addEventListener('resize', this.resize)
     window.addEventListener('keydown', this.keyDown)
 
@@ -600,6 +638,7 @@ export default {
   },
   beforeDestroy() {
     this.$eventBus.$off('change-lang', this.changeLanguage)
+    this.$eventBus.$off('token_refreshed', this.tokenRefreshed)
     window.removeEventListener('resize', this.resize)
     window.removeEventListener('keydown', this.keyDown)
   }

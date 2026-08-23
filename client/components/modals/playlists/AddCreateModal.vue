@@ -25,7 +25,7 @@
             <div class="text-sm flex items-center justify-center text-gray-200">
               <p>{{ $strings.MessageNoUserPlaylistsHelp }}</p>
               <ui-tooltip :text="$strings.LabelClickForMoreInfo" class="inline-flex ml-2">
-                <a href="https://www.audiobookshelf.org/guides/collections" target="_blank" class="inline-flex">
+                <a href="https://audiobookshelf.org/docs/documentation/libraries/common-content/playlists" target="_blank" class="inline-flex">
                   <span class="material-symbols text-xl w-5 text-gray-200">help_outline</span>
                 </a>
               </ui-tooltip>
@@ -97,7 +97,10 @@ export default {
             ...playlist
           }
         })
-        .sort((a, b) => (a.isItemIncluded ? -1 : 1))
+        .sort((a, b) => {
+          if (a.isItemIncluded !== b.isItemIncluded) return a.isItemIncluded ? -1 : 1
+          return a.name.localeCompare(b.name)
+        })
     },
     isBatch() {
       return this.selectedPlaylistItems.length > 1

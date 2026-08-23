@@ -1,10 +1,12 @@
 const { Request, Response } = require('express')
+const { Op } = require('sequelize')
 const Logger = require('../Logger')
 const SocketAuthority = require('../SocketAuthority')
 const Database = require('../Database')
 const { sort } = require('../libs/fastSort')
-const { toNumber, isNullOrNaN } = require('../utils/index')
+const { toNumber, isNullOrNaN, isUUID } = require('../utils/index')
 const userStats = require('../utils/queries/userStats')
+const parseUserAgent = require('../utils/parsers/parseUserAgent')
 
 /**
  * @typedef RequestUserObject
@@ -28,6 +30,124 @@ class MeController {
       user: userJson
     })
     res.json(userJson)
+  }
+
+  /**
+   * GET: /api/me/sessions
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  async getSessions(req, res) {
+    const page = Math.max(0, toNumber(req.query.page, 0))
+    const itemsPerPage = Math.max(1, toNumber(req.query.itemsPerPage, 10))
+
+    if (req.user.isGuest) {
+      return res.json({ sessions: [], total: 0, numPages: 0, page, itemsPerPage })
+    }
+
+    const refreshToken = req.cookies.refresh_token || req.headers['x-refresh-token']
+    const { rows, count } = await Database.sessionModel.findAndCountAll({
+      where: {
+        userId: req.user.id,
+        expiresAt: { [Op.gt]: new Date() }
+      },
+      order: [['updatedAt', 'DESC']],
+      limit: itemsPerPage,
+      offset: itemsPerPage * page
+    })
+
+    res.json({
+      total: count,
+      numPages: Math.ceil(count / itemsPerPage),
+      page,
+      itemsPerPage,
+      sessions: rows.map((session) => ({
+        id: session.id,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent,
+        // For display convenience
+        deviceInfo: parseUserAgent(session.userAgent),
+        createdAt: session.createdAt?.valueOf() ?? null,
+        updatedAt: session.updatedAt?.valueOf() ?? null,
+        current: !!refreshToken && (session.refreshToken === refreshToken || session.lastRefreshToken === refreshToken)
+      }))
+    })
+  }
+
+  /**
+   * DELETE: /api/me/sessions/:id
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  async deleteSession(req, res) {
+    if (req.user.isGuest) {
+      return res.sendStatus(403)
+    }
+
+    if (!isUUID(req.params.id)) {
+      return res.sendStatus(400)
+    }
+
+    const session = await Database.sessionModel.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      }
+    })
+
+    if (!session) {
+      return res.sendStatus(404)
+    }
+
+    await Database.sessionModel.destroy({ where: { id: session.id } })
+    Logger.info(`[MeController] User ${req.user.username} deleted auth session ${session.id}`)
+
+    res.sendStatus(200)
+  }
+
+  /**
+   * GET: /api/me/progress
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  getAllMediaProgress(req, res) {
+    const mediaProgress = req.user.mediaProgresses?.map((mp) => mp.getOldMediaProgress()) || []
+    res.json({ mediaProgress })
+  }
+
+  /**
+   * GET: /api/me/bookmarks
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  getAllBookmarks(req, res) {
+    const bookmarks = req.user.bookmarks?.map((bookmark) => ({ ...bookmark })) || []
+    res.json({ bookmarks })
+  }
+
+  /**
+   * GET: /api/me/bookmarks/:libraryItemId
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  async getBookmarksForLibraryItem(req, res) {
+    const libraryItem = await Database.libraryItemModel.getExpandedById(req.params.libraryItemId)
+    if (!libraryItem) {
+      return res.sendStatus(404)
+    }
+
+    if (!req.user.checkCanAccessLibraryItem(libraryItem)) {
+      Logger.error(`[MeController] User "${req.user.username}" attempted to access bookmarks for library item "${req.params.libraryItemId}" without access`)
+      return res.sendStatus(403)
+    }
+
+    const bookmarks = req.user.bookmarks?.filter((bookmark) => bookmark.libraryItemId === libraryItem.id).map((bookmark) => ({ ...bookmark })) || []
+    res.json({ bookmarks })
   }
 
   /**
@@ -67,12 +187,18 @@ class MeController {
    * @param {Response} res
    */
   async getItemListeningSessions(req, res) {
-    const libraryItem = await Database.libraryItemModel.findByPk(req.params.libraryItemId)
+    const libraryItem = await Database.libraryItemModel.getExpandedById(req.params.libraryItemId)
     const episode = await Database.podcastEpisodeModel.findByPk(req.params.episodeId)
 
     if (!libraryItem || (libraryItem.isPodcast && !episode)) {
       Logger.error(`[MeController] Media item not found for library item id "${req.params.libraryItemId}"`)
       return res.sendStatus(404)
+    }
+
+    // Check if user has access to this library item
+    if (!req.user.checkCanAccessLibraryItem(libraryItem)) {
+      Logger.error(`[MeController] User "${req.user.username}" attempted to access listening sessions for library item "${req.params.libraryItemId}" without access`)
+      return res.sendStatus(403)
     }
 
     const mediaItemId = episode?.id || libraryItem.mediaId
@@ -129,6 +255,13 @@ class MeController {
    * @param {Response} res
    */
   async removeMediaProgress(req, res) {
+    // Verify the media progress belongs to the current user
+    const mediaProgress = req.user.mediaProgresses.find((mp) => mp.id === req.params.id)
+    if (!mediaProgress) {
+      Logger.error(`[MeController] Media progress not found or does not belong to user "${req.user.username}"`)
+      return res.sendStatus(404)
+    }
+
     await Database.mediaProgressModel.removeById(req.params.id)
     req.user.mediaProgresses = req.user.mediaProgresses.filter((mp) => mp.id !== req.params.id)
 
@@ -196,7 +329,16 @@ class MeController {
    * @param {Response} res
    */
   async createBookmark(req, res) {
-    if (!(await Database.libraryItemModel.checkExistsById(req.params.id))) return res.sendStatus(404)
+    const libraryItem = await Database.libraryItemModel.getExpandedById(req.params.id)
+    if (!libraryItem) {
+      return res.sendStatus(404)
+    }
+
+    // Check if user has access to this library item
+    if (!req.user.checkCanAccessLibraryItem(libraryItem)) {
+      Logger.error(`[MeController] User "${req.user.username}" attempted to create bookmark for library item "${req.params.id}" without access`)
+      return res.sendStatus(403)
+    }
 
     const { time, title } = req.body
     if (isNullOrNaN(time)) {
@@ -220,7 +362,16 @@ class MeController {
    * @param {Response} res
    */
   async updateBookmark(req, res) {
-    if (!(await Database.libraryItemModel.checkExistsById(req.params.id))) return res.sendStatus(404)
+    const libraryItem = await Database.libraryItemModel.getExpandedById(req.params.id)
+    if (!libraryItem) {
+      return res.sendStatus(404)
+    }
+
+    // Check if user has access to this library item
+    if (!req.user.checkCanAccessLibraryItem(libraryItem)) {
+      Logger.error(`[MeController] User "${req.user.username}" attempted to update bookmark for library item "${req.params.id}" without access`)
+      return res.sendStatus(403)
+    }
 
     const { time, title } = req.body
     if (isNullOrNaN(time)) {
@@ -249,7 +400,16 @@ class MeController {
    * @param {Response} res
    */
   async removeBookmark(req, res) {
-    if (!(await Database.libraryItemModel.checkExistsById(req.params.id))) return res.sendStatus(404)
+    const libraryItem = await Database.libraryItemModel.getExpandedById(req.params.id)
+    if (!libraryItem) {
+      return res.sendStatus(404)
+    }
+
+    // Check if user has access to this library item
+    if (!req.user.checkCanAccessLibraryItem(libraryItem)) {
+      Logger.error(`[MeController] User "${req.user.username}" attempted to remove bookmark for library item "${req.params.id}" without access`)
+      return res.sendStatus(403)
+    }
 
     const time = Number(req.params.time)
     if (isNaN(time)) {
@@ -272,17 +432,49 @@ class MeController {
    * User change password. Requires current password.
    * Guest users cannot change password.
    *
+   * Invalidates all other JWT sessions for the user. If using x-refresh-token, returns new tokens for the current session.
+   *
    * @this import('../routers/ApiRouter')
    *
    * @param {RequestWithUser} req
    * @param {Response} res
    */
-  updatePassword(req, res) {
+  async updatePassword(req, res) {
     if (req.user.isGuest) {
       Logger.error(`[MeController] Guest user "${req.user.username}" attempted to change password`)
-      return res.sendStatus(500)
+      return res.sendStatus(403)
     }
-    this.auth.userChangePassword(req, res)
+
+    const { password, newPassword } = req.body
+    if ((typeof password !== 'string' && password !== null) || (typeof newPassword !== 'string' && newPassword !== null)) {
+      return res.status(400).send('Missing or invalid password or new password')
+    }
+
+    const result = await this.auth.localAuthStrategy.changePassword(req.user, password, newPassword)
+
+    if (result.error) {
+      return res.status(400).send(result.error)
+    }
+
+    const shouldReturnTokens = !!req.headers['x-refresh-token']
+    const newTokens = await this.auth.invalidateJwtSessionsForUser(req.user, req, res)
+
+    if (newTokens?.accessToken) {
+      Logger.info(`[MeController] Invalidated other JWT sessions for user ${req.user.username} after password change`)
+      if (shouldReturnTokens) {
+        return res.json({
+          success: true,
+          user: {
+            accessToken: newTokens.accessToken,
+            refreshToken: newTokens.refreshToken
+          }
+        })
+      }
+    } else {
+      Logger.info(`[MeController] Invalidated all JWT sessions for user ${req.user.username} after password change`)
+    }
+
+    res.sendStatus(200)
   }
 
   /**
@@ -442,7 +634,7 @@ class MeController {
     if (updated) {
       await Database.updateSetting(Database.emailSettings)
       SocketAuthority.clientEmitter(req.user.id, 'ereader-devices-updated', {
-        ereaderDevices: Database.emailSettings.ereaderDevices
+        ereaderDevices: Database.emailSettings.getEReaderDevices(req.user)
       })
     }
     res.json({
