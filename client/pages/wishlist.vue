@@ -135,7 +135,7 @@
                     <button @click="searchAnnaArchive(item)" class="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Search on Anna's Archive">
                       <span class="material-symbols text-sm">search</span>
                     </button>
-                    <button v-if="userIsAdminOrUp" @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
+                    <button v-if="jackettEnabled && userIsAdminOrUp" @click="searchJackett(item)" class="text-green-400 hover:text-green-300 transition-colors p-1" title="Search Jackett for downloads">
                       <span class="material-symbols text-sm">link</span>
                     </button>
                     <button @click="deleteWishlistItem(item)" class="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete from wishlist">
@@ -156,7 +156,7 @@
     </div>
 
     <!-- Jackett Search Modal -->
-    <modals-modal v-model="showJackettModal" name="jackett-search" :width="1200" :height="'unset'">
+    <modals-modal v-if="jackettEnabled" v-model="showJackettModal" name="jackett-search" :width="1200" :height="'unset'">
       <template #outer>
         <div class="absolute top-0 left-0 p-5 w-2/3 overflow-hidden">
           <p class="text-3xl text-white truncate">Torrent Search</p>
@@ -349,6 +349,9 @@ export default {
       searchResults: [],
       searchLoading: false,
       searchTimeout: null,
+      // Jackett integration is disabled on the wishlist page.
+      // Set to true to restore the torrent search button and modal.
+      jackettEnabled: false,
       showJackettModal: false,
       jackettSearching: false,
       jackettResults: [],
@@ -569,6 +572,9 @@ export default {
       window.open(annaArchiveUrl, '_blank', 'noopener,noreferrer')
     },
     async searchJackett(item) {
+      // Jackett integration is disabled on this page
+      if (!this.jackettEnabled) return
+
       // Check if user has admin permissions
       if (!this.userIsAdminOrUp) {
         this.$toast.error('Only administrators can access Jackett search')
