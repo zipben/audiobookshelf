@@ -1,3 +1,4 @@
+const axios = require('axios')
 const Logger = require('../Logger')
 const Database = require('../Database')
 
@@ -272,6 +273,59 @@ class WishlistController {
       res.status(500).json({ error: 'Failed to delete wishlist item' })
     }
   }
+
+  /**
+   * GET: /api/wishlist/search
+   * Proxy a Google Books search through the server so the API key stays server-side.
+   *
+   * @param {WishlistControllerRequest} req
+   * @param {Response} res
+   */
+  static async searchGoogleBooks(req, res) {
+    const query = (req.query.q || '').toString().trim()
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' })
+    }
+
+    const maxResults = Math.min(parseInt(req.query.maxResults, 10) || 8, 40)
+    const apiKey = Database.serverSettings?.googleBooksApiKey || process.env.GOOGLE_BOOKS_API_KEY || ''
+
+    let url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${maxResults}`
+    if (apiKey) url += `&key=${encodeURIComponent(apiKey)}`
+
+    try {
+      const response = await axios.get(url, { timeout: 10000 })
+      const items = response.data?.items || []
+
+      res.json({
+        results: items.map((item) => {
+          const volumeInfo = item.volumeInfo || {}
+          const imageLinks = volumeInfo.imageLinks || {}
+          return {
+            id: item.id,
+            title: volumeInfo.title || 'Unknown Title',
+            authors: volumeInfo.authors ? volumeInfo.authors.join(', ') : 'Unknown Author',
+            publishedDate: volumeInfo.publishedDate || null,
+            coverPath: (imageLinks.thumbnail || imageLinks.smallThumbnail || '').replace(/^http:/, 'https:') || null,
+            description: volumeInfo.description || '',
+            isbn: volumeInfo.industryIdentifiers?.[0]?.identifier || null,
+            pageCount: volumeInfo.pageCount || null,
+            categories: volumeInfo.categories || []
+          }
+        })
+      })
+    } catch (error) {
+      const status = error.response?.status
+      if (status === 429) {
+        Logger.error(`[WishlistController] Google Books search rate limited (HTTP 429). ${apiKey ? 'The configured API key has exceeded its quota.' : 'No API key configured - requests use a shared global quota that is frequently exhausted.'}`)
+        return res.status(503).json({
+          error: apiKey ? 'Google Books quota exceeded for the configured API key. Try again later.' : 'Google Books is rate limited. An administrator needs to configure a Google Books API key in server settings.'
+        })
+      }
+      Logger.error(`[WishlistController] Google Books search error for user ${req.user.id}:`, error.message)
+      res.status(502).json({ error: 'Google Books search failed. Please try again.' })
+    }
+  }
 }
 
-module.exports = WishlistController 
+module.exports = WishlistController

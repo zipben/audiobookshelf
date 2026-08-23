@@ -81,6 +81,10 @@ class ServerSettings {
     // Download Client Integration
     this.downloadClients = []
 
+    // Google Books API key. Keyless requests share a global Google quota that is
+    // routinely exhausted (HTTP 429), so a key is required for reliable results.
+    this.googleBooksApiKey = process.env.GOOGLE_BOOKS_API_KEY || ''
+
     // Auth settings
     this.authLoginCustomMessage = null
     this.authActiveAuthMethods = ['local']
@@ -161,6 +165,7 @@ class ServerSettings {
 
     this.jackettIntegrations = settings.jackettIntegrations || []
     this.downloadClients = settings.downloadClients || []
+    this.googleBooksApiKey = settings.googleBooksApiKey || process.env.GOOGLE_BOOKS_API_KEY || ''
 
     this.authLoginCustomMessage = sanitize(settings.authLoginCustomMessage) || null // Added v2.8.0
     this.authActiveAuthMethods = settings.authActiveAuthMethods || ['local']
@@ -277,6 +282,7 @@ class ServerSettings {
       buildNumber: this.buildNumber,
       jackettIntegrations: this.jackettIntegrations,
       downloadClients: this.downloadClients,
+      googleBooksApiKey: this.googleBooksApiKey,
       authLoginCustomMessage: this.authLoginCustomMessage,
       authActiveAuthMethods: this.authActiveAuthMethods,
       authOpenIDIssuerURL: this.authOpenIDIssuerURL,
@@ -319,6 +325,9 @@ class ServerSettings {
     delete json.authOpenIDMobileRedirectURIs
     delete json.authOpenIDGroupClaim
     delete json.authOpenIDAdvancedPermsClaim
+    // Never expose the API key itself to the client, only whether one is set
+    delete json.googleBooksApiKey
+    json.googleBooksApiKeyConfigured = !!this.googleBooksApiKey
     json.timeZone = ServerSettings.getHostTimeZone()
     return json
   }

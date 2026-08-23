@@ -378,6 +378,7 @@ class ApiRouter {
     //
     // Wishlist Routes
     //
+    this.router.get('/wishlist/search', WishlistController.searchGoogleBooks)
     this.router.get('/wishlist', WishlistController.getWishlistItems)
     this.router.post('/wishlist', WishlistController.addWishlistItem)
     this.router.put('/wishlist/:id', WishlistController.updateWishlistItem)

@@ -1,5 +1,6 @@
 const axios = require('axios')
 const Logger = require('../Logger')
+const Database = require('../Database')
 
 class GoogleBooks {
   #responseTimeout = 10000
@@ -41,6 +42,16 @@ class GoogleBooks {
   }
 
   /**
+   * Configured Google Books API key, if any.
+   * Requests without a key share a single global Google quota that is routinely
+   * exhausted, returning HTTP 429 for everyone using it.
+   * @returns {string}
+   */
+  getApiKey() {
+    return Database.serverSettings?.googleBooksApiKey || process.env.GOOGLE_BOOKS_API_KEY || ''
+  }
+
+  /**
    * Search for a book by title and author
    * @param {string} title
    * @param {string} author
@@ -56,8 +67,11 @@ class GoogleBooks {
       author = encodeURIComponent(author)
       queryString += `+inauthor:${author}`
     }
+    const apiKey = this.getApiKey()
+    if (apiKey) queryString += `&key=${encodeURIComponent(apiKey)}`
     const url = `https://www.googleapis.com/books/v1/volumes?${queryString}`
-    Logger.debug(`[GoogleBooks] Search url: ${url}`)
+    // Do not log the api key
+    Logger.debug(`[GoogleBooks] Search url: ${url.replace(/&key=[^&]*/, '&key=[redacted]')}`)
     const items = await axios
       .get(url, {
         timeout
@@ -67,7 +81,11 @@ class GoogleBooks {
         return res.data.items
       })
       .catch((error) => {
-        Logger.error('[GoogleBooks] Volume search error', error.message)
+        if (error.response?.status === 429) {
+          Logger.error(`[GoogleBooks] Search rate limited (HTTP 429). ${apiKey ? 'The configured Google Books API key has exceeded its quota.' : 'No Google Books API key is configured, so requests use a shared global quota that is frequently exhausted. Set one in server settings or the GOOGLE_BOOKS_API_KEY environment variable.'}`)
+        } else {
+          Logger.error('[GoogleBooks] Volume search error', error.message)
+        }
         return []
       })
     return items.map((item) => this.cleanResult(item))

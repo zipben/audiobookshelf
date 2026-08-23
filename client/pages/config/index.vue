@@ -70,6 +70,19 @@
             <ui-dropdown v-model="newServerSettings.scannerCoverProvider" small :items="providers" :label="$strings.LabelCoverProvider" @input="updateScannerCoverProvider" :disabled="updatingServerSettings" />
           </div>
 
+          <div role="article" aria-label="Google Books API key" class="py-2">
+            <div class="flex items-center">
+              <p class="pr-2">Google Books API Key</p>
+              <span v-if="googleBooksApiKeyConfigured" class="text-xs text-success">configured</span>
+              <span v-else class="text-xs text-warning">not set &mdash; searches share a global quota and are frequently rate limited</span>
+            </div>
+            <div class="flex items-center max-w-md mt-1">
+              <ui-text-input v-model="googleBooksApiKeyInput" type="password" :placeholder="googleBooksApiKeyConfigured ? 'Enter a new key to replace the saved one' : 'Paste your Google Books API key'" class="grow text-sm" :disabled="updatingServerSettings" />
+              <ui-btn small class="ml-2" :disabled="updatingServerSettings || !googleBooksApiKeyInput" @click="saveGoogleBooksApiKey">Save</ui-btn>
+              <ui-btn v-if="googleBooksApiKeyConfigured" small class="ml-2" :disabled="updatingServerSettings" @click="clearGoogleBooksApiKey">Clear</ui-btn>
+            </div>
+          </div>
+
           <div role="article" :aria-label="$strings.LabelSettingsPreferMatchedMetadataHelp" class="flex items-center py-2">
             <ui-toggle-switch :label="$strings.LabelSettingsPreferMatchedMetadata" v-model="newServerSettings.scannerPreferMatchedMetadata" :disabled="updatingServerSettings" @input="(val) => updateSettingsKey('scannerPreferMatchedMetadata', val)" />
             <ui-tooltip aria-hidden="true" :text="$strings.LabelSettingsPreferMatchedMetadataHelp">
@@ -231,6 +244,7 @@ export default {
       isPurgingCache: false,
       hasPrefixesChanged: false,
       newServerSettings: {},
+      googleBooksApiKeyInput: '',
       showConfirmPurgeCache: false,
       savingPrefixes: false
     }
@@ -245,6 +259,10 @@ export default {
   computed: {
     serverSettings() {
       return this.$store.state.serverSettings
+    },
+    googleBooksApiKeyConfigured() {
+      // The key itself is never sent to the client, only whether one is set
+      return !!this.serverSettings?.googleBooksApiKeyConfigured
     },
     providers() {
       // Use book cover providers for the cover provider dropdown
@@ -335,6 +353,16 @@ export default {
 
       this.newServerSettings.allowedOrigins = validOrigins
       this.updateSettingsKey('allowedOrigins', validOrigins)
+    },
+    saveGoogleBooksApiKey() {
+      const key = this.googleBooksApiKeyInput.trim()
+      if (!key) return
+      this.updateServerSettings({ googleBooksApiKey: key })
+      this.googleBooksApiKeyInput = ''
+    },
+    clearGoogleBooksApiKey() {
+      this.updateServerSettings({ googleBooksApiKey: '' })
+      this.googleBooksApiKeyInput = ''
     },
     updateSettingsKey(key, val) {
       if (key === 'scannerDisableWatcher') {

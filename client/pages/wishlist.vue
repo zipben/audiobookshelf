@@ -492,26 +492,17 @@ export default {
       this.searchResults = []
 
       try {
-        // Using Google Books API
-        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(this.searchQuery)}&maxResults=8`)
-        const data = await response.json()
-
-        if (data.items) {
-          this.searchResults = data.items.map((item) => ({
-            id: item.id,
-            title: item.volumeInfo.title || 'Unknown Title',
-            authors: item.volumeInfo.authors ? item.volumeInfo.authors.join(', ') : 'Unknown Author',
-            publishedDate: item.volumeInfo.publishedDate || null,
-            coverPath: item.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || item.volumeInfo.imageLinks?.smallThumbnail?.replace('http:', 'https:') || '/default-book-cover.jpg',
-            description: item.volumeInfo.description || '',
-            isbn: item.volumeInfo.industryIdentifiers?.[0]?.identifier || null,
-            pageCount: item.volumeInfo.pageCount || null,
-            categories: item.volumeInfo.categories || []
-          }))
-        }
+        // Proxied through the server so the Google Books API key stays server-side
+        const data = await this.$axios.$get(`/api/wishlist/search?q=${encodeURIComponent(this.searchQuery)}&maxResults=8`)
+        this.searchResults = (data.results || []).map((result) => ({
+          ...result,
+          coverPath: result.coverPath || '/default-book-cover.jpg'
+        }))
       } catch (error) {
+        // Surface the real reason instead of silently showing no results
+        const message = error.response?.data?.error || 'Error searching Google Books. Please try again.'
         console.error('Error searching Google Books:', error)
-        this.$toast.error('Error searching Google Books. Please try again.')
+        this.$toast.error(message)
       } finally {
         this.searchLoading = false
       }
