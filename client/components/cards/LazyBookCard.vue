@@ -806,6 +806,9 @@ export default {
               deviceName
             }
             this.processing = true
+            if (this.ebookFormat === 'epub') {
+              this.$toast.info(this.$strings.ToastSendEbookToDevicePreparing)
+            }
             const axios = this.$axios || this.$nuxt.$axios
             axios
               .$post(`/api/emails/send-ebook-to-device`, payload)
