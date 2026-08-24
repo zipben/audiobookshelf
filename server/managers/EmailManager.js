@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer')
+const fs = require('fs-extra')
 const Database = require('../Database')
 const Logger = require("../Logger")
+const { prepareEpubForDevice } = require('../utils/prepareEbookForDevice')
 
 class EmailManager {
   constructor() { }
@@ -36,7 +38,7 @@ class EmailManager {
     })
   }
 
-  async sendEBookToDevice(ebookFile, device, res) {
+  async sendEBookToDevice(ebookFile, device, res, libraryItem) {
     Logger.info(`[EmailManager] Sending ebook "${ebookFile.metadata.filename}" to device "${device.name}"/"${device.email}"`)
     const transporter = this.getTransporter()
 
@@ -49,6 +51,27 @@ class EmailManager {
       return res.status(400).send('Failed to verify SMTP connection configuration')
     }
 
+    // Prepare epub before sending: correct the filename to the book title and
+    // replace the embedded cover with the Audiobookshelf cover. Falls back to
+    // sending the original file if preparation fails or the format isn't epub.
+    let prepared = null
+    try {
+      prepared = await prepareEpubForDevice(ebookFile, libraryItem)
+    } catch (error) {
+      Logger.error(`[EmailManager] Failed to prepare epub, sending original file`, error)
+    }
+
+    const attachmentFilename = prepared?.filename || ebookFile.metadata.filename
+    const attachmentPath = prepared?.path || ebookFile.metadata.path
+
+    const cleanup = () => {
+      if (prepared?.path) {
+        fs.remove(prepared.path).catch((error) => {
+          Logger.warn(`[EmailManager] Failed to remove temp ebook "${prepared.path}"`, error)
+        })
+      }
+    }
+
     transporter.sendMail({
       from: Database.emailSettings.fromAddress,
       to: device.email,
@@ -56,8 +79,8 @@ class EmailManager {
       html: '<div dir="auto"></div>',
       attachments: [
         {
-          filename: ebookFile.metadata.filename,
-          path: ebookFile.metadata.path,
+          filename: attachmentFilename,
+          path: attachmentPath,
         }
       ]
     }).then((result) => {
@@ -66,7 +89,7 @@ class EmailManager {
     }).catch((error) => {
       Logger.error(`[EmailManager] Failed to send ebook to device`, error)
       res.status(400).send(error.message || 'Failed to send ebook to device')
-    })
+    }).finally(cleanup)
   }
 }
 module.exports = EmailManager

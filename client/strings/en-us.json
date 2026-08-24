@@ -1130,6 +1130,7 @@
   "ToastScanFailed": "Failed to scan library item",
   "ToastSelectAtLeastOneUser": "Select at least one user",
   "ToastSendEbookToDeviceFailed": "Failed to send ebook to device",
+  "ToastSendEbookToDevicePreparing": "Preparing epub…",
   "ToastSendEbookToDeviceSuccess": "Ebook sent to device \"{0}\"",
   "ToastSeriesSubmitFailedSameName": "Cannot add two series with the same name",
   "ToastSeriesUpdateFailed": "Series update failed",
