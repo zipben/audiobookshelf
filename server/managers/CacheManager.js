@@ -12,6 +12,7 @@ class CacheManager {
     this.CoverCachePath = null
     this.ImageCachePath = null
     this.ItemCachePath = null
+    this.SendEbookCachePath = null
   }
 
   /**
@@ -23,12 +24,17 @@ class CacheManager {
     this.CoverCachePath = Path.join(this.CachePath, 'covers')
     this.ImageCachePath = Path.join(this.CachePath, 'images')
     this.ItemCachePath = Path.join(this.CachePath, 'items')
+    // Temp epubs prepared for send-to-device only need to live for the duration of one
+    // request, so anything left here at startup is orphaned (e.g. process killed mid-send)
+    // and is emptied on boot.
+    this.SendEbookCachePath = Path.join(this.CachePath, 'send-ebook')
 
     try {
       await fs.ensureDir(this.CachePath)
       await fs.ensureDir(this.CoverCachePath)
       await fs.ensureDir(this.ImageCachePath)
       await fs.ensureDir(this.ItemCachePath)
+      await fs.emptyDir(this.SendEbookCachePath)
     } catch (error) {
       Logger.error(`[CacheManager] Failed to create cache directories at "${this.CachePath}": ${error.message}`)
       throw new Error(`[CacheManager] Failed to create cache directories at "${this.CachePath}"`, { cause: error })
