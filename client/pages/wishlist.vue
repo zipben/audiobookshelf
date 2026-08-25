@@ -566,7 +566,7 @@ export default {
       // Construct the search query with title and author
       const query = `${item.title} ${item.author || ''}`.trim()
       const encodedQuery = encodeURIComponent(query)
-      const annaArchiveUrl = `https://annas-archive.org/search?q=${encodedQuery}`
+      const annaArchiveUrl = `https://annas-archive.gl/search?q=${encodedQuery}`
 
       // Open Anna's Archive in a new tab
       window.open(annaArchiveUrl, '_blank', 'noopener,noreferrer')
