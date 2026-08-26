@@ -14,6 +14,8 @@ const Logger = require('../Logger')
  * @property {string[]} metadataPrecedence
  * @property {number} markAsFinishedTimeRemaining Time remaining in seconds to mark as finished. (defaults to 10s)
  * @property {number} markAsFinishedPercentComplete Percent complete to mark as finished (0-100). If this is set it will be used over markAsFinishedTimeRemaining.
+ * @property {boolean} discordNotificationsEnabled Send a Discord webhook notification when a new item is added to this library
+ * @property {string} discordWebhookUrl Discord webhook URL that new item notifications for this library are posted to
  */
 
 class Library extends Model {
@@ -61,7 +63,9 @@ class Library extends Model {
         autoScanCronExpression: null,
         podcastSearchRegion: 'us',
         markAsFinishedPercentComplete: null,
-        markAsFinishedTimeRemaining: 10
+        markAsFinishedTimeRemaining: 10,
+        discordNotificationsEnabled: false,
+        discordWebhookUrl: ''
       }
     } else {
       return {
@@ -76,7 +80,9 @@ class Library extends Model {
         onlyShowLaterBooksInContinueSeries: false,
         metadataPrecedence: this.defaultMetadataPrecedence,
         markAsFinishedPercentComplete: null,
-        markAsFinishedTimeRemaining: 10
+        markAsFinishedTimeRemaining: 10,
+        discordNotificationsEnabled: false,
+        discordWebhookUrl: ''
       }
     }
   }

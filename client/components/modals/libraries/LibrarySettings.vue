@@ -75,6 +75,21 @@
       <div v-if="isPodcastLibrary" class="p-2 w-full md:w-1/2">
         <ui-dropdown :label="$strings.LabelPodcastSearchRegion" v-model="podcastSearchRegion" :items="$podcastSearchRegionOptions" small class="max-w-72" menu-max-height="200px" @input="formUpdated" />
       </div>
+      <div class="p-2 w-full">
+        <div class="flex items-center">
+          <ui-toggle-switch v-model="discordNotificationsEnabled" size="sm" @input="formUpdated" />
+          <ui-tooltip :text="$strings.LabelSettingsDiscordNotificationsHelp">
+            <p class="pl-4 text-sm">
+              {{ $strings.LabelSettingsDiscordNotifications }}
+              <span class="material-symbols icon-text text-sm">info</span>
+            </p>
+          </ui-tooltip>
+        </div>
+        <div v-if="discordNotificationsEnabled" class="mt-2 max-w-md">
+          <ui-text-input-with-label v-model="discordWebhookUrl" :label="$strings.LabelSettingsDiscordWebhookUrl" placeholder="https://discord.com/api/webhooks/..." @input="formUpdated" />
+          <p v-if="discordWebhookUrl && !discordWebhookUrlValid" class="text-xs text-error pt-1">{{ $strings.MessageInvalidDiscordWebhookUrl }}</p>
+        </div>
+      </div>
       <div class="p-2 w-full flex items-center space-x-2 flex-wrap">
         <div>
           <ui-dropdown v-model="markAsFinishedWhen" :items="maskAsFinishedWhenItems" :label="$strings.LabelSettingsLibraryMarkAsFinishedWhen" small class="w-72 min-w-72 text-sm" menu-max-height="200px" @input="markAsFinishedWhenChanged" />
@@ -114,7 +129,9 @@ export default {
       onlyShowLaterBooksInContinueSeries: false,
       podcastSearchRegion: 'us',
       markAsFinishedWhen: 'timeRemaining',
-      markAsFinishedValue: 10
+      markAsFinishedValue: 10,
+      discordNotificationsEnabled: false,
+      discordWebhookUrl: ''
     }
   },
   computed: {
@@ -132,6 +149,10 @@ export default {
     },
     isPodcastLibrary() {
       return this.mediaType === 'podcast'
+    },
+    discordWebhookUrlValid() {
+      const url = (this.discordWebhookUrl || '').trim()
+      return /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\d+\/[\w-]+$/.test(url)
     },
     maskAsFinishedWhenItems() {
       return [
@@ -172,7 +193,9 @@ export default {
           onlyShowLaterBooksInContinueSeries: !!this.onlyShowLaterBooksInContinueSeries,
           podcastSearchRegion: this.podcastSearchRegion,
           markAsFinishedTimeRemaining: markAsFinishedTimeRemaining,
-          markAsFinishedPercentComplete: markAsFinishedPercentComplete
+          markAsFinishedPercentComplete: markAsFinishedPercentComplete,
+          discordNotificationsEnabled: !!this.discordNotificationsEnabled,
+          discordWebhookUrl: (this.discordWebhookUrl || '').trim()
         }
       }
     },
@@ -194,6 +217,8 @@ export default {
         this.markAsFinishedWhen = 'timeRemaining'
       }
       this.markAsFinishedValue = this.librarySettings.markAsFinishedTimeRemaining || this.librarySettings.markAsFinishedPercentComplete || 10
+      this.discordNotificationsEnabled = !!this.librarySettings.discordNotificationsEnabled
+      this.discordWebhookUrl = this.librarySettings.discordWebhookUrl || ''
     }
   },
   mounted() {

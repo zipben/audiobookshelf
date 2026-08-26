@@ -15,6 +15,7 @@ const LibraryScan = require('./LibraryScan')
 const LibraryItemScanData = require('./LibraryItemScanData')
 const Task = require('../objects/Task')
 const NotificationManager = require('../managers/NotificationManager')
+const { sendLibraryItemAddedNotification } = require('../utils/discordWebhook')
 
 class LibraryScanner {
   constructor() {
@@ -638,6 +639,10 @@ class LibraryScanner {
       if (newLibraryItem) {
         SocketAuthority.libraryItemEmitter('item_added', newLibraryItem)
         NotificationManager.onLibraryItemAdded(newLibraryItem)
+        // Direct per-library Discord webhook notification (independent of the Apprise notification system)
+        sendLibraryItemAddedNotification(library, newLibraryItem).catch((error) => {
+          Logger.error(`[LibraryScanner] Failed to send Discord notification for new item "${newLibraryItem.title}"`, error)
+        })
       }
       itemGroupingResults[itemDir] = newLibraryItem ? ScanResult.ADDED : ScanResult.NOTHING
     }

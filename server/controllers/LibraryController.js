@@ -9,6 +9,7 @@ const libraryItemsBookFilters = require('../utils/queries/libraryItemsBookFilter
 const libraryItemFilters = require('../utils/queries/libraryItemFilters')
 const seriesFilters = require('../utils/queries/seriesFilters')
 const fileUtils = require('../utils/fileUtils')
+const { isValidDiscordWebhookUrl } = require('../utils/discordWebhook')
 const { createNewSortInstance } = require('../libs/fastSort')
 const naturalSort = createNewSortInstance({
   comparer: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare
@@ -353,6 +354,21 @@ class LibraryController {
             hasUpdates = true
             updatedSettings[key] = req.body.settings[key] === null ? null : Number(req.body.settings[key])
             Logger.debug(`[LibraryController] Library "${req.library.name}" updating setting "${key}" to "${updatedSettings[key]}"`)
+          }
+        } else if (key === 'discordWebhookUrl') {
+          if (req.body.settings[key] !== null && typeof req.body.settings[key] !== 'string') {
+            Logger.error(`[LibraryController] Invalid request. Settings "${key}" must be a string`)
+            return res.status(400).send(`Invalid request. Settings "${key}" must be a string`)
+          }
+          const webhookUrl = (req.body.settings[key] || '').trim()
+          if (webhookUrl && !isValidDiscordWebhookUrl(webhookUrl)) {
+            Logger.error(`[LibraryController] Invalid request. Settings "${key}" must be a valid Discord webhook URL`)
+            return res.status(400).send(`Invalid request. Settings "${key}" must be a valid Discord webhook URL`)
+          }
+          if (webhookUrl !== updatedSettings[key]) {
+            hasUpdates = true
+            updatedSettings[key] = webhookUrl
+            Logger.debug(`[LibraryController] Library "${req.library.name}" updating setting "${key}"`)
           }
         } else {
           if (typeof req.body.settings[key] !== typeof updatedSettings[key]) {
