@@ -116,6 +116,24 @@
             <ui-toggle-switch v-model="newServerSettings.allowIframe" :label="$strings.LabelSettingsAllowIframe" :disabled="updatingServerSettings" @input="(val) => updateSettingsKey('allowIframe', val)" />
             <p aria-hidden="true" class="pl-4">{{ $strings.LabelSettingsAllowIframe }}</p>
           </div>
+
+          <div class="pt-4">
+            <h2 class="font-semibold">{{ $strings.HeaderSettingsSendToDevice }}</h2>
+          </div>
+
+          <div class="py-2">
+            <ui-text-input-with-label v-model="newServerSettings.maxEbookFileSizeMB" type="number" :min="0" :disabled="updatingServerSettings" :label="$strings.LabelSettingsMaxEbookFileSize" :note="$strings.LabelSettingsMaxEbookFileSizeNote" class="max-w-72" @blur="updateMaxEbookFileSize" />
+          </div>
+
+          <div class="flex items-center py-2 mb-2">
+            <ui-toggle-switch v-model="newServerSettings.blockPdfSendToDevice" :label="$strings.LabelSettingsBlockPdfSendToDevice" :disabled="updatingServerSettings" @input="(val) => updateSettingsKey('blockPdfSendToDevice', val)" />
+            <ui-tooltip :text="$strings.LabelSettingsBlockPdfSendToDeviceHelp">
+              <p aria-hidden="true" class="pl-4">
+                <span>{{ $strings.LabelSettingsBlockPdfSendToDevice }}</span>
+                <span class="material-symbols icon-text">info</span>
+              </p>
+            </ui-tooltip>
+          </div>
         </div>
 
         <div class="flex-1">
@@ -363,6 +381,13 @@ export default {
     clearGoogleBooksApiKey() {
       this.updateServerSettings({ googleBooksApiKey: '' })
       this.googleBooksApiKeyInput = ''
+    },
+    updateMaxEbookFileSize() {
+      let val = Number(this.newServerSettings.maxEbookFileSizeMB)
+      if (isNaN(val) || val < 0) val = 0
+      this.newServerSettings.maxEbookFileSizeMB = val
+      if (val === this.serverSettings.maxEbookFileSizeMB) return
+      this.updateServerSettings({ maxEbookFileSizeMB: val })
     },
     updateSettingsKey(key, val) {
       if (key === 'scannerDisableWatcher') {

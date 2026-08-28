@@ -121,6 +121,20 @@ class EmailController {
       return res.status(404).send('Ebook file not found')
     }
 
+    // Block PDF files from being sent to a device (server setting)
+    if (Database.serverSettings.blockPdfSendToDevice && ebookFile.ebookFormat?.toLowerCase() === 'pdf') {
+      Logger.info(`[EmailController] Blocked sending PDF ebook to device (blockPdfSendToDevice enabled) for libraryItemId=${libraryItem.id}`)
+      return res.status(400).send('PDF files cannot be sent to a device')
+    }
+
+    // Block ebook files larger than the configured max file size (server setting, in MB, 0 = no limit)
+    const maxEbookFileSizeMB = Database.serverSettings.maxEbookFileSizeMB
+    const ebookFileSize = ebookFile.metadata?.size || 0
+    if (maxEbookFileSizeMB > 0 && ebookFileSize > maxEbookFileSizeMB * 1024 * 1024) {
+      Logger.info(`[EmailController] Blocked sending ebook to device. File size ${ebookFileSize} bytes exceeds limit of ${maxEbookFileSizeMB}MB for libraryItemId=${libraryItem.id}`)
+      return res.status(400).send(`Ebook file is too large to send to a device (max ${maxEbookFileSizeMB} MB)`)
+    }
+
     this.emailManager.sendEBookToDevice(ebookFile, device, res, libraryItem)
   }
 

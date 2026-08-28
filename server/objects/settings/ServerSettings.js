@@ -63,6 +63,12 @@ class ServerSettings {
     this.sortingIgnorePrefix = false
     this.sortingPrefixes = ['the', 'a']
 
+    // Send ebook to device (email/kindle) restrictions
+    // Max ebook file size (in MB) that can be sent to a device. 0 = no limit
+    this.maxEbookFileSizeMB = 9
+    // When true, PDF ebook files cannot be sent to a device
+    this.blockPdfSendToDevice = true
+
     // Misc Flags
     this.chromecastEnabled = false
     this.dateFormat = 'MM/dd/yyyy'
@@ -151,6 +157,10 @@ class ServerSettings {
 
     this.homeBookshelfView = settings.homeBookshelfView || BookshelfView.STANDARD
     this.bookshelfView = settings.bookshelfView || BookshelfView.STANDARD
+
+    // maxEbookFileSizeMB / blockPdfSendToDevice added after v2.x
+    this.maxEbookFileSizeMB = !isNaN(settings.maxEbookFileSizeMB) && settings.maxEbookFileSizeMB !== null ? Number(settings.maxEbookFileSizeMB) : 9
+    this.blockPdfSendToDevice = settings.blockPdfSendToDevice === undefined ? true : !!settings.blockPdfSendToDevice
 
     this.sortingIgnorePrefix = !!settings.sortingIgnorePrefix
     this.sortingPrefixes = settings.sortingPrefixes || ['the']
@@ -270,6 +280,8 @@ class ServerSettings {
       homeBookshelfView: this.homeBookshelfView,
       bookshelfView: this.bookshelfView,
       podcastEpisodeSchedule: this.podcastEpisodeSchedule,
+      maxEbookFileSizeMB: this.maxEbookFileSizeMB,
+      blockPdfSendToDevice: this.blockPdfSendToDevice,
       sortingIgnorePrefix: this.sortingIgnorePrefix,
       sortingPrefixes: [...this.sortingPrefixes],
       chromecastEnabled: this.chromecastEnabled,
@@ -395,6 +407,12 @@ class ServerSettings {
       if (key === 'sortingPrefixes') {
         // Sorting prefixes are updated with the /api/sorting-prefixes endpoint
         continue
+      } else if (key === 'maxEbookFileSizeMB') {
+        const newValue = isNaN(payload[key]) || payload[key] === null ? 9 : Math.max(0, Number(payload[key]))
+        if (this.maxEbookFileSizeMB !== newValue) {
+          this.maxEbookFileSizeMB = newValue
+          hasUpdates = true
+        }
       } else if (key === 'authActiveAuthMethods') {
         if (!payload[key]?.length) {
           Logger.error(`[ServerSettings] Invalid authActiveAuthMethods`, payload[key])

@@ -817,7 +817,8 @@ export default {
               })
               .catch((error) => {
                 console.error('Failed to send ebook to device', error)
-                this.$toast.error(this.$strings.ToastSendEbookToDeviceFailed)
+                const errorMsg = error.response?.data
+                this.$toast.error(typeof errorMsg === 'string' && errorMsg ? errorMsg : this.$strings.ToastSendEbookToDeviceFailed)
               })
               .finally(() => {
                 this.processing = false
