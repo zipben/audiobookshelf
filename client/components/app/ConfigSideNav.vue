@@ -66,6 +66,11 @@ export default {
           path: '/config/libraries'
         },
         {
+          id: 'config-move-items',
+          title: this.$strings.HeaderMoveItems,
+          path: '/config/move-items'
+        },
+        {
           id: 'config-users',
           title: this.$strings.HeaderUsers,
           path: '/config/users'

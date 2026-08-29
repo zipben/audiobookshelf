@@ -6,11 +6,12 @@ const uaParserJs = require('../libs/uaParser')
 const Logger = require('../Logger')
 const SocketAuthority = require('../SocketAuthority')
 const Database = require('../Database')
+const Watcher = require('../Watcher')
 
 const zipHelpers = require('../utils/zipHelpers')
 const { reqSupportsWebp, clampPositiveInt } = require('../utils/index')
 const { ScanResult, AudioMimeType } = require('../utils/constants')
-const { getAudioMimeTypeFromExtname, encodeUriPath } = require('../utils/fileUtils')
+const { getAudioMimeTypeFromExtname, encodeUriPath, filePathToPOSIX } = require('../utils/fileUtils')
 const LibraryItemScanner = require('../scanner/LibraryItemScanner')
 const AudioFileScanner = require('../scanner/AudioFileScanner')
 const Scanner = require('../scanner/Scanner')
@@ -53,6 +54,25 @@ function ensureUserCanAccessLibraryItemsForBatch(req, res, libraryItems) {
     }
   }
   return true
+}
+
+/**
+ * Rewrite an absolute path that lives under `oldBase` so it lives under `newBase` instead.
+ * Returns the original path unchanged if it is not within `oldBase`.
+ *
+ * @param {string} p absolute path (POSIX)
+ * @param {string} oldBase absolute base path being moved from (POSIX, no trailing slash)
+ * @param {string} newBase absolute base path being moved to (POSIX, no trailing slash)
+ * @returns {string}
+ */
+function rewritePathBase(p, oldBase, newBase) {
+  if (!p) return p
+  const posix = filePathToPOSIX(p)
+  if (posix === oldBase) return newBase
+  if (posix.startsWith(oldBase + '/')) {
+    return newBase + posix.slice(oldBase.length)
+  }
+  return p
 }
 
 class LibraryItemController {
@@ -625,6 +645,194 @@ class LibraryItemController {
     await Database.resetLibraryIssuesFilterData(libraryId)
 
     res.sendStatus(200)
+  }
+
+  /**
+   * POST: /api/items/batch/move
+   * Move library items (books) to a different library by moving their files on disk
+   * into a folder of the target library and updating the database in place (item id,
+   * media, and user progress are preserved).
+   *
+   * Body: { libraryItemIds: string[], libraryId: string (target), libraryFolderId?: string (target folder) }
+   *
+   * @this {import('../routers/ApiRouter')}
+   *
+   * @param {RequestWithUser} req
+   * @param {Response} res
+   */
+  async batchMove(req, res) {
+    if (!req.user.isAdminOrUp) {
+      Logger.warn(`[LibraryItemController] Non-admin user "${req.user.username}" attempted to move library items`)
+      return res.sendStatus(403)
+    }
+
+    const { libraryItemIds, libraryId: targetLibraryId, libraryFolderId: targetFolderIdInput } = req.body
+    if (!Array.isArray(libraryItemIds) || !libraryItemIds.length || !targetLibraryId) {
+      return res.status(400).send('Invalid request body. libraryItemIds array and target libraryId are required')
+    }
+
+    // Load and validate target library + folder
+    const targetLibrary = await Database.libraryModel.findByPk(targetLibraryId, {
+      include: Database.libraryFolderModel
+    })
+    if (!targetLibrary) {
+      return res.status(404).send('Target library not found')
+    }
+    if (targetLibrary.mediaType !== 'book') {
+      return res.status(400).send('Target library must be a book library')
+    }
+    const targetFolders = targetLibrary.libraryFolders || []
+    if (!targetFolders.length) {
+      return res.status(400).send('Target library has no folders')
+    }
+    const targetFolder = targetFolderIdInput ? targetFolders.find((f) => f.id === targetFolderIdInput) : targetFolders[0]
+    if (!targetFolder) {
+      return res.status(404).send('Target library folder not found')
+    }
+    const targetFolderPath = filePathToPOSIX(targetFolder.path)
+
+    // Load the items to move
+    const itemsToMove = await Database.libraryItemModel.findAllExpandedWhere({
+      id: libraryItemIds
+    })
+    if (!itemsToMove.length) {
+      return res.sendStatus(404)
+    }
+
+    if (!ensureUserCanAccessLibraryItemsForBatch(req, res, itemsToMove)) {
+      return
+    }
+
+    // Cache source library folder paths
+    const sourceFolders = {}
+
+    const results = []
+    const affectedLibraryIds = new Set([targetLibraryId])
+
+    for (const libraryItem of itemsToMove) {
+      const itemResult = { id: libraryItem.id, title: libraryItem.media?.title, success: false, error: null }
+
+      if (libraryItem.mediaType !== 'book') {
+        itemResult.error = 'Only book items can be moved'
+        results.push(itemResult)
+        continue
+      }
+      if (libraryItem.libraryId === targetLibraryId) {
+        itemResult.error = 'Item is already in the target library'
+        results.push(itemResult)
+        continue
+      }
+
+      // Resolve source folder path for this item
+      let sourceFolderPath = sourceFolders[libraryItem.libraryFolderId]
+      if (!sourceFolderPath) {
+        const sourceFolder = await Database.libraryFolderModel.findByPk(libraryItem.libraryFolderId)
+        if (!sourceFolder) {
+          itemResult.error = 'Source library folder not found'
+          results.push(itemResult)
+          continue
+        }
+        sourceFolderPath = filePathToPOSIX(sourceFolder.path)
+        sourceFolders[libraryItem.libraryFolderId] = sourceFolderPath
+      }
+
+      const oldItemPath = filePathToPOSIX(libraryItem.path)
+      // Keep the same relative path within the new library folder
+      const newItemPath = filePathToPOSIX(Path.join(targetFolderPath, libraryItem.relPath))
+
+      if (newItemPath === oldItemPath) {
+        itemResult.error = 'Source and destination paths are the same'
+        results.push(itemResult)
+        continue
+      }
+
+      // Refuse to overwrite an existing destination
+      if (await fs.pathExists(newItemPath)) {
+        itemResult.error = `Destination already exists: ${libraryItem.relPath}`
+        results.push(itemResult)
+        continue
+      }
+
+      // Prevent the watcher from reacting to the file move on either side
+      Watcher.addIgnoreDir(oldItemPath)
+      Watcher.addIgnoreDir(newItemPath)
+
+      try {
+        await fs.ensureDir(Path.dirname(newItemPath))
+        await fs.move(oldItemPath, newItemPath, { overwrite: false })
+      } catch (error) {
+        Logger.error(`[LibraryItemController] Failed to move item files from "${oldItemPath}" to "${newItemPath}"`, error)
+        Watcher.removeIgnoreDir(oldItemPath)
+        Watcher.removeIgnoreDir(newItemPath)
+        itemResult.error = 'Failed to move files on disk'
+        results.push(itemResult)
+        continue
+      }
+
+      try {
+        affectedLibraryIds.add(libraryItem.libraryId)
+
+        // Rewrite absolute paths and reassign library/folder on the library item
+        libraryItem.path = newItemPath
+        libraryItem.libraryId = targetLibraryId
+        libraryItem.libraryFolderId = targetFolder.id
+        if (Array.isArray(libraryItem.libraryFiles)) {
+          libraryItem.libraryFiles = libraryItem.libraryFiles.map((lf) => {
+            if (lf.metadata?.path) lf.metadata.path = rewritePathBase(lf.metadata.path, oldItemPath, newItemPath)
+            return lf
+          })
+          libraryItem.changed('libraryFiles', true)
+        }
+        await libraryItem.save()
+
+        // Rewrite absolute paths stored on the book media (cover, audio files, ebook file)
+        const book = libraryItem.media
+        let bookChanged = false
+        if (book.coverPath && filePathToPOSIX(book.coverPath).startsWith(oldItemPath)) {
+          book.coverPath = rewritePathBase(book.coverPath, oldItemPath, newItemPath)
+          bookChanged = true
+        }
+        if (Array.isArray(book.audioFiles) && book.audioFiles.length) {
+          book.audioFiles = book.audioFiles.map((af) => {
+            if (af.metadata?.path) af.metadata.path = rewritePathBase(af.metadata.path, oldItemPath, newItemPath)
+            return af
+          })
+          book.changed('audioFiles', true)
+          bookChanged = true
+        }
+        if (book.ebookFile?.metadata?.path) {
+          book.ebookFile.metadata.path = rewritePathBase(book.ebookFile.metadata.path, oldItemPath, newItemPath)
+          book.changed('ebookFile', true)
+          bookChanged = true
+        }
+        if (bookChanged) {
+          await book.save()
+        }
+
+        Logger.info(`[LibraryItemController] Moved library item "${itemResult.title}" (${libraryItem.id}) to library "${targetLibrary.name}" at "${newItemPath}"`)
+        SocketAuthority.libraryItemEmitter('item_updated', libraryItem)
+        itemResult.success = true
+      } catch (error) {
+        // Files were already moved - the DB is now out of sync with disk for this item.
+        Logger.error(`[LibraryItemController] Moved files for "${libraryItem.id}" but failed to update database. Item may need a re-scan.`, error)
+        itemResult.error = 'Files moved but database update failed - a library scan may be required'
+      } finally {
+        Watcher.removeIgnoreDir(oldItemPath)
+        Watcher.removeIgnoreDir(newItemPath)
+      }
+
+      results.push(itemResult)
+    }
+
+    // Refresh filter data for every library that gained or lost items
+    for (const libraryId of affectedLibraryIds) {
+      await Database.resetLibraryIssuesFilterData(libraryId)
+    }
+
+    res.json({
+      results,
+      movedCount: results.filter((r) => r.success).length
+    })
   }
 
   /**

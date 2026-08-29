@@ -103,6 +103,7 @@ class ApiRouter {
     // Item Routes
     //
     this.router.post('/items/batch/delete', LibraryItemController.batchDelete.bind(this))
+    this.router.post('/items/batch/move', LibraryItemController.batchMove.bind(this))
     this.router.post('/items/batch/update', LibraryItemController.batchUpdate.bind(this))
     this.router.post('/items/batch/get', LibraryItemController.batchGet.bind(this))
     this.router.post('/items/batch/quickmatch', LibraryItemController.batchQuickMatch.bind(this))
