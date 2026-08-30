@@ -30,7 +30,7 @@
               </button>
             </div>
           </template>
-          <button v-else :key="index" role="menuitem" class="flex items-center px-2 py-1.5 hover:bg-white/5 text-white text-xs cursor-pointer w-full" @click.stop="clickAction(item.action)">
+          <button v-else :key="index" role="menuitem" :disabled="item.disabled" class="flex items-center px-2 py-1.5 text-xs w-full" :class="item.disabled ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-white/5 text-white cursor-pointer'" @click.stop="clickAction(item.action, null, item.disabled)">
             <p class="text-left">{{ item.text }}</p>
           </button>
         </template>
@@ -108,8 +108,8 @@ export default {
     clickedOutside() {
       this.showMenu = false
     },
-    clickAction(action, data) {
-      if (this.disabled) return
+    clickAction(action, data, itemDisabled) {
+      if (this.disabled || itemDisabled) return
       this.showMenu = false
       this.$emit('action', { action, data })
     }

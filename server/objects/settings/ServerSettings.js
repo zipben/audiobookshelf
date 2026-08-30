@@ -32,6 +32,10 @@ class ServerSettings {
     this.scannerPreferMatchedMetadata = false
     this.scannerDisableWatcher = false
 
+    // Maximum number of items that can be quick matched in a single bulk match request.
+    // The bulk match action is disabled when more than this many items are selected. 0 = no limit
+    this.bulkMatchMaxItems = 50
+
     // Metadata - choose to store inside users library item folder
     this.storeCoverWithItem = false
     this.storeMetadataWithItem = false
@@ -138,6 +142,8 @@ class ServerSettings {
     this.scannerParseSubtitle = settings.scannerParseSubtitle
     this.scannerPreferMatchedMetadata = !!settings.scannerPreferMatchedMetadata
     this.scannerDisableWatcher = !!settings.scannerDisableWatcher
+
+    this.bulkMatchMaxItems = !isNaN(settings.bulkMatchMaxItems) && settings.bulkMatchMaxItems !== null ? Number(settings.bulkMatchMaxItems) : 50
 
     this.storeCoverWithItem = !!settings.storeCoverWithItem
     this.storeMetadataWithItem = !!settings.storeMetadataWithItem
@@ -265,6 +271,7 @@ class ServerSettings {
       scannerParseSubtitle: this.scannerParseSubtitle,
       scannerPreferMatchedMetadata: this.scannerPreferMatchedMetadata,
       scannerDisableWatcher: this.scannerDisableWatcher,
+      bulkMatchMaxItems: this.bulkMatchMaxItems,
       storeCoverWithItem: this.storeCoverWithItem,
       storeMetadataWithItem: this.storeMetadataWithItem,
       metadataFileFormat: this.metadataFileFormat,
@@ -411,6 +418,12 @@ class ServerSettings {
         const newValue = isNaN(payload[key]) || payload[key] === null ? 9 : Math.max(0, Number(payload[key]))
         if (this.maxEbookFileSizeMB !== newValue) {
           this.maxEbookFileSizeMB = newValue
+          hasUpdates = true
+        }
+      } else if (key === 'bulkMatchMaxItems') {
+        const newValue = isNaN(payload[key]) || payload[key] === null ? 50 : Math.max(0, Math.floor(Number(payload[key])))
+        if (this.bulkMatchMaxItems !== newValue) {
+          this.bulkMatchMaxItems = newValue
           hasUpdates = true
         }
       } else if (key === 'authActiveAuthMethods') {

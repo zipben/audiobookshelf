@@ -103,6 +103,10 @@
             </ui-tooltip>
           </div>
 
+          <div class="py-2">
+            <ui-text-input-with-label v-model="newServerSettings.bulkMatchMaxItems" type="number" :min="0" :disabled="updatingServerSettings" :label="$strings.LabelSettingsBulkMatchMaxItems" :note="$strings.LabelSettingsBulkMatchMaxItemsNote" class="max-w-72" @blur="updateBulkMatchMaxItems" />
+          </div>
+
           <div class="pt-4">
             <h2 class="font-semibold">{{ $strings.HeaderSettingsWebClient }}</h2>
           </div>
@@ -388,6 +392,14 @@ export default {
       this.newServerSettings.maxEbookFileSizeMB = val
       if (val === this.serverSettings.maxEbookFileSizeMB) return
       this.updateServerSettings({ maxEbookFileSizeMB: val })
+    },
+    updateBulkMatchMaxItems() {
+      let val = Number(this.newServerSettings.bulkMatchMaxItems)
+      if (isNaN(val) || val < 0) val = 0
+      val = Math.floor(val)
+      this.newServerSettings.bulkMatchMaxItems = val
+      if (val === this.serverSettings.bulkMatchMaxItems) return
+      this.updateServerSettings({ bulkMatchMaxItems: val })
     },
     updateSettingsKey(key, val) {
       if (key === 'scannerDisableWatcher') {

@@ -989,6 +989,13 @@ class LibraryItemController {
       return res.sendStatus(400)
     }
 
+    // Enforce the server-configured maximum number of items for a bulk match (0 = no limit)
+    const bulkMatchMaxItems = Database.serverSettings.bulkMatchMaxItems
+    if (bulkMatchMaxItems > 0 && req.body.libraryItemIds.length > bulkMatchMaxItems) {
+      Logger.warn(`[LibraryItemController] Batch quick match request exceeds the limit of ${bulkMatchMaxItems} items (${req.body.libraryItemIds.length} requested)`)
+      return res.status(400).send(`Batch quick match is limited to ${bulkMatchMaxItems} items`)
+    }
+
     const libraryItems = await Database.libraryItemModel.findAllExpandedWhere({
       id: req.body.libraryItemIds
     })

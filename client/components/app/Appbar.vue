@@ -95,6 +95,9 @@
         <ui-tooltip v-if="userCanDelete" :text="$strings.ButtonRemove" direction="bottom">
           <ui-icon-btn :disabled="processingBatch" icon="delete" bg-color="bg-error" class="mx-1.5" @click="batchDeleteClick" />
         </ui-tooltip>
+        <ui-tooltip v-if="userIsAdminOrUp" :text="bulkMatchDisabled ? $getString('ToastBatchQuickMatchLimitExceeded', [bulkMatchMaxItems]) : $strings.ButtonQuickMatch" direction="bottom">
+          <ui-icon-btn :disabled="processingBatch || bulkMatchDisabled" icon="search" :aria-label="$strings.ButtonQuickMatch" class="mx-1.5" @click="batchAutoMatchClick" />
+        </ui-tooltip>
 
         <ui-context-menu-dropdown v-if="contextMenuItems.length && !processingBatch" :items="contextMenuItems" class="ml-1" @action="contextMenuAction" />
 
@@ -186,15 +189,18 @@ export default {
     isHttps() {
       return location.protocol === 'https:' || process.env.NODE_ENV === 'development'
     },
+    bulkMatchMaxItems() {
+      const max = this.$store.getters['getServerSetting']('bulkMatchMaxItems')
+      return isNaN(max) || max === null ? 50 : Number(max)
+    },
+    bulkMatchDisabled() {
+      // 0 = no limit
+      return this.bulkMatchMaxItems > 0 && this.numMediaItemsSelected > this.bulkMatchMaxItems
+    },
     contextMenuItems() {
       if (!this.userIsAdminOrUp) return []
 
-      const options = [
-        {
-          text: this.$strings.ButtonQuickMatch,
-          action: 'quick-match'
-        }
-      ]
+      const options = []
 
       if (!this.isPodcastLibrary && this.selectedMediaItemsArePlayable) {
         options.push({
@@ -260,8 +266,6 @@ export default {
     contextMenuAction({ action }) {
       if (action === 'quick-embed') {
         this.requestBatchQuickEmbed()
-      } else if (action === 'quick-match') {
-        this.batchAutoMatchClick()
       } else if (action === 'rescan') {
         this.batchRescan()
       } else if (action === 'download') {
@@ -416,6 +420,10 @@ export default {
       this.totalEntities = totalEntities
     },
     batchAutoMatchClick() {
+      if (this.bulkMatchDisabled) {
+        this.$toast.warning(this.$getString('ToastBatchQuickMatchLimitExceeded', [this.bulkMatchMaxItems]))
+        return
+      }
       this.$store.commit('globals/setShowBatchQuickMatchModal', true)
     },
     batchApplyTagsClick() {
